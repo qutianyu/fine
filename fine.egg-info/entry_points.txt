@@ -1,0 +1,2 @@
+[console_scripts]
+fine = market_data.cli:main

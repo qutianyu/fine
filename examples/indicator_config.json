@@ -1,0 +1,8 @@
+{
+    "symbols": ["sh600519", "sh600000"],
+    "indicators": ["MA", "MACD", "RSI", "KDJ", "BOLL"],
+    "period": "daily",
+    "start_date": "2023-01-01",
+    "end_date": "2024-01-01",
+    "provider": "akshare"
+}
