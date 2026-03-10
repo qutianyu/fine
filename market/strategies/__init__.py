@@ -10,10 +10,10 @@
         └── __init__.py
 
 使用方式:
-    from fine.market_data.strategies import MyCustomStrategy
+    from fine.market.strategies import MyCustomStrategy
 
     # 或从 custom 目录导入
-    from fine.market_data.strategies.custom import my_strategy
+    from fine.market.strategies.custom import my_strategy
 """
 
 import importlib
@@ -81,7 +81,7 @@ def load_custom_strategies() -> List[Type[Strategy]]:
         if py_file.name.startswith("_"):
             continue
 
-        module_name = f"market_data.strategies.custom.{py_file.stem}"
+        module_name = f"market.strategies.custom.{py_file.stem}"
 
         try:
             module = importlib.import_module(module_name)
@@ -189,8 +189,8 @@ def _ensure_custom_example():
 
 示例:
 
-from fine.market_data.strategy import Strategy, SignalType, StockSignal, StrategyResult
-from fine.market_data.providers import MarketData
+from fine.market.strategy import Strategy, SignalType, StockSignal, StrategyResult
+from fine.market.providers import MarketData
 from typing import List
 
 class MyStrategy(Strategy):
@@ -201,7 +201,7 @@ class MyStrategy(Strategy):
         self.param1 = param1
     
     def generate_signals(
-        self, symbols: List[str], market_data: MarketData, **kwargs
+        self, symbols: List[str], market: MarketData, **kwargs
     ) -> StrategyResult:
         signals = []
         # 实现你的策略逻辑

@@ -49,9 +49,9 @@ fine indicator --config examples/indicator_config.json
 ### 代码使用
 
 ```python
-from market_data import create_provider, Backtest, BacktestConfig
-from market_data import StaticStockPool
-from market_data import create_strategy
+from market import create_provider, Backtest, BacktestConfig
+from market import StaticStockPool
+from market import create_strategy
 
 # 创建数据源
 provider = create_provider("akshare")
@@ -139,7 +139,7 @@ black .
 isort .
 
 # 类型检查
-mypy market_data/
+mypy market/
 ```
 
 ## License

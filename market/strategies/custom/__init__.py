@@ -12,8 +12,8 @@
 
 示例 - 创建自定义策略 (my_strategy.py):
 
-    from fine.market_data.strategy import Strategy, SignalType, StockSignal, StrategyResult
-    from fine.market_data.providers import MarketData
+    from fine.market.strategy import Strategy, SignalType, StockSignal, StrategyResult
+    from fine.market.providers import MarketData
     from typing import List
 
     class MyStrategy(Strategy):
@@ -24,7 +24,7 @@
             self.param1 = param1
 
         def generate_signals(
-            self, symbols: List[str], market_data: MarketData, **kwargs
+            self, symbols: List[str], market: MarketData, **kwargs
         ) -> StrategyResult:
             signals = []
             # ... 实现策略逻辑
@@ -35,13 +35,13 @@
 
 使用自定义策略:
 
-    from fine.market_data.strategies import list_custom_strategies, StrategyRegistry
+    from fine.market.strategies import list_custom_strategies, StrategyRegistry
 
     # 查看已加载的自定义策略
     print(list_custom_strategies())
 
     # 或直接从模块导入
-    from fine.market_data.strategies.custom.my_strategy import MyStrategy
+    from fine.market.strategies.custom.my_strategy import MyStrategy
 """
 
 # 导入父模块以保持策略注册

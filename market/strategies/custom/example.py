@@ -5,8 +5,8 @@
 
 示例:
 
-from fine.market_data.strategy import Strategy, SignalType, StockSignal, StrategyResult
-from fine.market_data.providers import MarketData
+from fine.market.strategy import Strategy, SignalType, StockSignal, StrategyResult
+from fine.market.providers import MarketData
 from typing import List
 
 class MyStrategy(Strategy):
@@ -17,7 +17,7 @@ class MyStrategy(Strategy):
         self.param1 = param1
     
     def generate_signals(
-        self, symbols: List[str], market_data: MarketData, **kwargs
+        self, symbols: List[str], market: MarketData, **kwargs
     ) -> StrategyResult:
         signals = []
         # 实现你的策略逻辑

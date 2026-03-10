@@ -56,8 +56,9 @@ result = risk_manager.check_trade(symbol="sh600519", action="buy", context={...}
 ```
 
 ### Cache (cache.py)
+
 ```python
-from market_data import CSVCache
+from market import CSVCache
 
 cache = CSVCache(cache_dir=".fine_cache")
 cache.set_kline("sh600519", klines, ttl=3600)
@@ -88,7 +89,7 @@ pytest tests/test_backtest.py
 pytest tests/test_backtest.py::test_position_pnl -v
 
 # Run with coverage
-pytest --cov=market_data --cov-report=html
+pytest --cov=market --cov-report=html
 ```
 
 ### Code Quality
@@ -99,11 +100,11 @@ black .
 isort .
 
 # Lint code
-flake8 market_data/
-pylint market_data/
+flake8 market/
+pylint market/
 
 # Type checking
-mypy market_data/
+mypy market/
 ```
 
 ## Code Style Guidelines

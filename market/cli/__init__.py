@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from market_data import __version__
+from market import __version__
 
 
 class FineCLI:

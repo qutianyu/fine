@@ -122,12 +122,12 @@ class DynamicStockPool(StockPool):
     Usage:
         # 使用策略选择股票
         pool = DynamicStockPool(
-            selector=lambda market_data, date: ["sh600000", "sh600519"]
+            selector=lambda market, date: ["sh600000", "sh600519"]
         )
 
         # 使用回测日期范围内的股票,每20天调仓
         pool = DynamicStockPool(
-            market_data=market_data,
+            market=market,
             strategy=strategy,
             rebalance_days=20
         )
@@ -495,7 +495,7 @@ class Backtest:
         backtest = Backtest()
         result = backtest.run(
             symbols=["sh600000", "sh600519"],
-            market_data=m,
+            market=m,
             start_date="2025-01-01",
             end_date="2026-01-01",
             strategy=strategy,
@@ -503,7 +503,7 @@ class Backtest:
 
         # 动态股票池 (每20天调仓)
         pool = DynamicStockPool(
-            market_data=m,
+            market=m,
             strategy=strategy,
             rebalance_days=20,
             start_date="2024-01-01",
@@ -511,7 +511,7 @@ class Backtest:
         )
         result = backtest.run(
             stock_pool=pool,
-            market_data=m,
+            market=m,
             start_date="2025-01-01",
             end_date="2026-01-01",
             strategy=strategy,
