@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`fine` is a Python market data and trading backtesting library for quantitative finance. The main package is located in `market_data/` and includes:
+`fine` is a Python market data and trading backtesting library for quantitative finance. The main package is located in `market/` and includes:
 
 - **providers/**: Data providers (Tencent, Sina, Akshare, Baostock, YFinance)
 - **indicators/**: Technical indicators (MA, MACD, KDJ, RSI, Bollinger Bands, etc.)
@@ -13,28 +13,96 @@
 - **providers.py**: Provider registry and market data classes
 - **portfolio.py**: Multi-strategy portfolio management
 - **risk.py**: Risk management (stop-loss, position limits, VaR)
-- **cache.py**: CSV-based data caching
+- **cache.py**: Multi-backend data caching (memory, CSV, SQLite)
 
-## New Modules
+## Package Name
 
-### CLI (Command Line Interface)
+The package is named `market` (not `fine.market_data`). When importing:
+
+```python
+# Correct
+from market import Backtest, create_provider
+from market.cache import get_cache
+from market.indicators import MA, MACD
+
+# Incorrect (old)
+from fine.market_data import ...
+```
+
+## CLI (Command Line Interface)
+
 ```bash
 # Install
 pip install -e .
 
-# Run backtest
-fine backtest --config examples/backtest_config.json
+# Run backtest directly
+fine --config config.json
 
-# Fetch data
-fine data --config examples/data_config.json
+# Start server
+fine start
 
-# Calculate indicators
-fine indicator --config examples/indicator_config.json
+# Client interactive mode
+fine client localhost:8080
+
+# Client one-shot commands
+fine client localhost:8080 --health
+fine client localhost:8080 --backtest config.json
+fine client localhost:8080 --list
 ```
+
+### Config File Structure (Modular Design)
+
+```json
+{
+    "provider": "akshare",
+    "symbols": ["sh600519", "sh600000"],
+    "strategy": {
+        "name": "macd",
+        "params": {"fast_period": 12, "slow_period": 26}
+    },
+    "cash": {
+        "initial_capital": 1000000,
+        "fee": {
+            "commission_rate": 0.0003,
+            "slippage": 0.001,
+            "stamp_duty": 0.001
+        }
+    },
+    "date": {
+        "start": "2023-01-01",
+        "end": "2024-01-01"
+    },
+    "backtest": {
+        "position_size": 1.0,
+        "max_positions": 10
+    },
+    "benchmark": ["sh000001", "sh000300"],
+    "risk": {
+        "stop_loss": -0.07,
+        "take_profit": 0.15
+    },
+    "work_dir": "./output",
+    "lang": "en",
+    "cache": {"type": "memory"}
+}
+```
+
+### Output Files
+
+When `work_dir` is specified, the following files are generated:
+- `result_{timestamp}.md` - Backtest results in markdown
+- `cache_{timestamp}.csv` - Trade history
+- `chart_{timestamp}.png` - Equity curve chart (requires matplotlib)
+
+### I18N Support
+
+The config supports `lang` field (zh/en):
+- `lang: "zh"` - Chinese output
+- `lang: "en"` - English output (default)
 
 ### Portfolio (portfolio.py)
 ```python
-from fine.market_data import PortfolioManager, PortfolioOptimizer
+from market import PortfolioManager, PortfolioOptimizer
 
 # Create portfolio manager
 portfolio = PortfolioManager(
@@ -48,7 +116,7 @@ metrics = portfolio.get_metrics()
 
 ### Risk Management (risk.py)
 ```python
-from fine.market_data import RiskManager, StopLossRule, PositionLimit
+from market import RiskManager, StopLossRule, PositionLimit
 
 risk_manager = RiskManager()
 risk_manager.add_rule(StopLossRule(loss_threshold=-0.07))
@@ -57,11 +125,26 @@ result = risk_manager.check_trade(symbol="sh600519", action="buy", context={...}
 
 ### Cache (cache.py)
 
-```python
-from market import CSVCache
+The cache module supports multiple backends via registry pattern:
+- **memory**: In-memory cache (default, for testing)
+- **csv**: File-based CSV storage
+- **sqlite**: SQLite database storage
 
-cache = CSVCache(cache_dir=".fine_cache")
-cache.set_kline("sh600519", klines, ttl=3600)
+```python
+from market.cache import get_cache, MemoryCache, CSVCache, SQLiteCache
+
+# Default: memory cache
+cache = get_cache("memory")
+
+# CSV cache
+cache = get_cache("csv", cache_dir="./cache")
+
+# SQLite cache
+cache = get_cache("sqlite", cache_dir="./cache")
+
+# Use cache for kline data
+cache.set_kline("sh600519", klines, period="daily", ttl=3600)
+data = cache.get_kline("sh600519", period="daily")
 ```
 
 ## Running the Project

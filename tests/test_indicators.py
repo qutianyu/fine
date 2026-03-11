@@ -4,7 +4,7 @@ Tests for indicators module.
 
 import pytest
 import numpy as np
-from fine.market_data.indicators import (
+from market.indicators import (
     MA,
     EMA,
     MACD,

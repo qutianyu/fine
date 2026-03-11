@@ -391,11 +391,9 @@ class RollingWindowSignalGenerator(SignalGenerator):
 
             date_str = window.iloc[-1]["date"]
 
-            # 简化: 收盘价作为信号价格
             current_price = close[-1]
 
-            # 生成信号
-            signal_type = self._generate_signal_from_indicators(ohlcv)
+            signal_type = self._generate_signal_from_strategy(ohlcv)
             if signal_type != SignalType.HOLD:
                 signals.append(
                     StockSignal(
@@ -409,6 +407,50 @@ class RollingWindowSignalGenerator(SignalGenerator):
                 )
 
         return signals
+
+    def _generate_signal_from_strategy(self, ohlcv: dict) -> SignalType:
+        """Generate signal based on strategy type"""
+        from market.indicators import TechnicalIndicators
+
+        ti = TechnicalIndicators()
+        close = ohlcv["close"]
+
+        strategy_name = getattr(self.strategy, "name", "")
+        strategy_class = type(self.strategy).__name__
+
+        if strategy_name == "macd" or strategy_class == "MACDStrategy":
+            fast = getattr(self.strategy, "fast", 12)
+            slow = getattr(self.strategy, "slow", 26)
+            signal = getattr(self.strategy, "signal", 9)
+
+            macd_result = ti.compute(
+                "MACD", close, fast=fast, slow=slow, signal=signal
+            )
+
+            dif = macd_result.get("dif", [])
+            dea = macd_result.get("dea", [])
+
+            if len(dif) >= 2 and len(dea) >= 2:
+                if dif[-2] <= dea[-2] and dif[-1] > dea[-1]:
+                    return SignalType.BUY
+                elif dif[-2] >= dea[-2] and dif[-1] < dea[-1]:
+                    return SignalType.SELL
+
+        elif strategy_name == "rsi" or strategy_class == "RSIStrategy":
+            period = getattr(self.strategy, "period", 14)
+            oversold = getattr(self.strategy, "oversold", 30)
+            overbought = getattr(self.strategy, "overbought", 70)
+
+            rsi_result = ti.compute("RSI", close, period=period)
+            rsi = rsi_result.get("rsi", [])
+
+            if len(rsi) >= 1:
+                if rsi[-1] < oversold:
+                    return SignalType.BUY
+                elif rsi[-1] > overbought:
+                    return SignalType.SELL
+
+        return SignalType.HOLD
 
 
 @dataclass
@@ -563,7 +605,7 @@ class Backtest:
         Returns:
             BacktestResult: 回测结果
         """
-        from fine.market_data.strategy import StrategyRegistry
+        from market.strategy import StrategyRegistry
 
         # 从 config 提取参数
         benchmark_symbol = "sh000300"
@@ -870,6 +912,17 @@ class Backtest:
                     lookback_days=30,
                 )
                 signals.extend(signal_gen.generate(df_before))
+        elif isinstance(strategy, Strategy):
+            for symbol, df in all_data.items():
+                df_before = df[df["date"] <= date]
+                if len(df_before) < 20:
+                    continue
+
+                signal_gen = RollingWindowSignalGenerator(
+                    strategy,
+                    lookback_days=30,
+                )
+                signals.extend(signal_gen.generate(df_before))
 
         return signals
 
@@ -1152,7 +1205,7 @@ def quick_backtest(
     Returns:
         BacktestResult: 回测结果
     """
-    from fine.market_data.strategy import StrategyRegistry
+    from market.strategy import StrategyRegistry
 
     if isinstance(strategy, str):
         strategy = StrategyRegistry.get(strategy)

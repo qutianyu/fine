@@ -3,7 +3,7 @@ Tests for fee module.
 """
 
 import pytest
-from fine.market_data.fee import (
+from market.fee import (
     FeeRates,
     TradeFee,
     FeeCalculator,

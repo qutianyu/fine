@@ -3,7 +3,7 @@ Tests for backtest module.
 """
 
 import pytest
-from fine.market_data.backtest import (
+from market.backtest import (
     Position,
     Trade,
     PerformanceMetrics,

@@ -1,46 +1,6 @@
-from typing import Dict, List
+from typing import Dict
 import numpy as np
-from .base import Indicator
-
-
-class MA(Indicator):
-    name = "MA"
-
-    def compute(self, data: np.ndarray, period: int = 20) -> np.ndarray:
-        period = 20 if not isinstance(period, int) else period
-        period = min(period, len(data))
-        result = np.full(len(data), np.nan)
-        result[period - 1 :] = np.convolve(data, np.ones(period) / period, mode="valid")
-        return result
-
-
-class EMA(Indicator):
-    name = "EMA"
-
-    def compute(self, data: np.ndarray, period: int = 12) -> np.ndarray:
-        result = np.zeros(len(data))
-        result[0] = data[0]
-        multiplier = 2 / (period + 1)
-        for i in range(1, len(data)):
-            result[i] = (data[i] - result[i - 1]) * multiplier + result[i - 1]
-        return result
-
-
-class BBI(Indicator):
-    name = "BBI"
-
-    def compute(self, data: np.ndarray, periods: List[int] = None) -> np.ndarray:
-        if periods is None:
-            periods = [3, 6, 12, 24]
-
-        ma = MA()
-        ma3 = ma.compute(data, periods[0])
-        ma6 = ma.compute(data, periods[1])
-        ma12 = ma.compute(data, periods[2])
-        ma24 = ma.compute(data, periods[3])
-
-        result = (ma3 + ma6 + ma12 + ma24) / 4
-        return result
+from ..base import Indicator
 
 
 class SAR(Indicator):

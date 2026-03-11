@@ -33,6 +33,9 @@ dependencies = [
     "akshare>=1.14.0",
     "baostock>=0.8.9",
     "yfinance>=0.2.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.27.0",
+    "pydantic>=2.6.0",
 ]
 
 [project.optional-dependencies]
@@ -58,11 +61,11 @@ Repository = "https://github.com/fine/fine"
 Issues = "https://github.com/fine/fine/issues"
 
 [project.scripts]
-fine = "market_data.cli:main"
+fine = "market.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["market_data*"]
+include = ["market*"]
 
 [tool.setuptools.package-data]
 market_data = ["py.typed"]

@@ -3,7 +3,7 @@
 Fine CLI Entry Point
 
 Usage:
-    python -m fine run --config config.json
+    python -m fine run --config client_config.json
     python -m fine backtest --config backtest.json
     python -m fine indicator --config indicator.json
     python -m fine data --config data.json
