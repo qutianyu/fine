@@ -1,407 +1,411 @@
 # AGENTS.md - Agent Coding Guidelines for fine
 
-## Project Overview
+`fine` is a Python market data and trading backtesting library for quantitative finance.
 
-`fine` is a Python market data and trading backtesting library for quantitative finance. The main package is located in `market/` and includes:
+## Package Structure
 
-- **providers/**: Data providers (Tencent, Sina, Akshare, Baostock, YFinance)
-- **indicators/**: Technical indicators (MA, MACD, KDJ, RSI, Bollinger Bands, etc.)
-- **strategies/**: Trading strategies (built-in and custom)
-- **backtest.py**: Backtesting engine
-- **fee.py**: Chinese A-share fee calculation
-- **strategy.py**: Strategy base classes and signal types
-- **providers.py**: Provider registry and market data classes
-- **portfolio.py**: Multi-strategy portfolio management
-- **risk.py**: Risk management (stop-loss, position limits, VaR)
-- **cache.py**: Multi-backend data caching (memory, CSV, SQLite)
-
-## Package Name
-
-The package is named `market` (not `fine.market_data`). When importing:
-
-```python
-# Correct
-from market import Backtest, create_provider
-from market.cache import get_cache
-from market.indicators import MA, MACD
-
-# Incorrect (old)
-from fine.market_data import ...
 ```
-
-## CLI (Command Line Interface)
-
-```bash
-# Install
-pip install -e .
-
-# Run backtest directly
-fine --config config.json
-
-# Start server
-fine start
-
-# Client interactive mode
-fine client localhost:8080
-
-# Client one-shot commands
-fine client localhost:8080 --health
-fine client localhost:8080 --backtest config.json
-fine client localhost:8080 --list
-```
-
-### Config File Structure (Modular Design)
-
-```json
-{
-    "provider": "akshare",
-    "symbols": ["sh600519", "sh600000"],
-    "strategy": {
-        "name": "macd",
-        "params": {"fast_period": 12, "slow_period": 26}
-    },
-    "cash": {
-        "initial_capital": 1000000,
-        "fee": {
-            "commission_rate": 0.0003,
-            "slippage": 0.001,
-            "stamp_duty": 0.001
-        }
-    },
-    "date": {
-        "start": "2023-01-01",
-        "end": "2024-01-01"
-    },
-    "backtest": {
-        "position_size": 1.0,
-        "max_positions": 10
-    },
-    "benchmark": ["sh000001", "sh000300"],
-    "risk": {
-        "stop_loss": -0.07,
-        "take_profit": 0.15
-    },
-    "work_dir": "./output",
-    "lang": "en",
-    "cache": {"type": "memory"}
-}
-```
-
-### Output Files
-
-When `work_dir` is specified, the following files are generated:
-- `result_{timestamp}.md` - Backtest results in markdown
-- `cache_{timestamp}.csv` - Trade history
-- `chart_{timestamp}.png` - Equity curve chart (requires matplotlib)
-
-### I18N Support
-
-The config supports `lang` field (zh/en):
-- `lang: "zh"` - Chinese output
-- `lang: "en"` - English output (default)
-
-### Portfolio (portfolio.py)
-```python
-from market import PortfolioManager, PortfolioOptimizer
-
-# Create portfolio manager
-portfolio = PortfolioManager(
-    initial_capital=1000000.0,
-    strategies=[StrategyAllocation("trend", weight=0.6)]
-)
-
-# Get portfolio metrics
-metrics = portfolio.get_metrics()
-```
-
-### Risk Management (risk.py)
-```python
-from market import RiskManager, StopLossRule, PositionLimit
-
-risk_manager = RiskManager()
-risk_manager.add_rule(StopLossRule(loss_threshold=-0.07))
-result = risk_manager.check_trade(symbol="sh600519", action="buy", context={...})
-```
-
-### Cache (cache.py)
-
-The cache module supports multiple backends via registry pattern:
-- **memory**: In-memory cache (default, for testing)
-- **csv**: File-based CSV storage
-- **sqlite**: SQLite database storage
-
-```python
-from market.cache import get_cache, MemoryCache, CSVCache, SQLiteCache
-
-# Default: memory cache
-cache = get_cache("memory")
-
-# CSV cache
-cache = get_cache("csv", cache_dir="./cache")
-
-# SQLite cache
-cache = get_cache("sqlite", cache_dir="./cache")
-
-# Use cache for kline data
-cache.set_kline("sh600519", klines, period="daily", ttl=3600)
-data = cache.get_kline("sh600519", period="daily")
+src/fine/
+├── strategies/                      # Strategy module
+│   ├── strategy.py                  # Strategy base class
+│   ├── data.py                      # Data wrapper class
+│   └── portfolio.py                 # Portfolio management
+├── base/
+│   └── indicators.py                # Indicators wrapper
+├── backtest.py                      # Backtest engine
+├── period.py                        # Period enum constants
+├── providers/                       # Data providers
+├── store/                          # Data storage
+└── cli/                           # Command line interface
 ```
 
 ## Running the Project
 
-### Installation
-
 ```bash
-# Install in development mode
 pip install -e .
-
-# Or install dependencies manually
-pip install numpy pandas akshare baostock yfinance
-```
-
-### Running Tests
-
-```bash
-# Run all tests
 pytest
-
-# Run a single test file
-pytest tests/test_backtest.py
-
-# Run a specific test
-pytest tests/test_backtest.py::test_position_pnl -v
-
-# Run with coverage
-pytest --cov=market --cov-report=html
-```
-
-### Code Quality
-
-```bash
-# Format code
 black .
 isort .
-
-# Lint code
-flake8 market/
-pylint market/
-
-# Type checking
-mypy market/
+flake8 fine/
+pylint fine/
+mypy fine/
 ```
 
-## Code Style Guidelines
+## Code Style
 
-### General Principles
+- **Black** formatting (line length: 100)
+- **isort** for import organization
+- Type hints for public APIs (preferred)
+- Google-style docstrings for public classes/functions
+- PEP 8 naming: PascalCase (classes), snake_case (functions), UPPER_SNAKE_CASE (constants)
 
-- Follow PEP 8 with **Black** formatting (line length: 100)
-- Use **isort** for import organization
-- Add type hints where beneficial (not required but preferred for public APIs)
-- Write docstrings for all public classes and functions (Google style)
-- Keep functions focused and single-purpose
-
-### Naming Conventions
-
-| Element | Convention | Example |
-|---------|------------|---------|
-| Classes | PascalCase | `DataProvider`, `StockSignal` |
-| Functions/methods | snake_case | `get_quote()`, `compute_indicators()` |
-| Constants | UPPER_SNAKE_CASE | `SHANGHAI_RATES`, `MAX_RETRIES` |
-| Private members | Leading underscore | `_init_cache()`, `_load_data` |
-| Dataclass fields | snake_case | `signal_type`, `change_pct` |
-
-### Import Organization (isort)
-
-Order imports in the following groups (separate with blank line):
-
-1. Standard library (`from abc import`, `from typing import`)
-2. Third-party packages (`import numpy as np`, `import pandas as pd`)
-3. Local application (`from fine.market_data import`)
+### Import Order (separate with blank line)
+1. Standard library (`from typing import`)
+2. Third-party (`import pandas as pd`)
+3. Local (`from fine.providers import`)
 
 ```python
-# Standard library
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-# Third-party
 import numpy as np
 import pandas as pd
 
-# Local
-from fine.market_data.providers import MarketData, Quote
-from fine.market_data.indicators import MACD, RSI
+from fine.providers import MarketData, Quote
 ```
 
-### Type Hints
-
-Use type hints for:
-- Function parameters and return types
-- Class attributes (where applicable)
-- Complex data structures
-
+### Error Handling
+- Use custom exceptions for domain errors
+- Specific exception types in try/except
 ```python
-# Good
-def get_quote(self, symbols: Union[str, List[str]]) -> Dict[str, Quote]:
-    ...
-
-# Avoid
-def get_quote(self, symbols):  # No type hints
-    ...
+if name not in cls._indicators:
+    raise ValueError(f"Unknown indicator: {name}")
 ```
 
-### Dataclasses
-
-Use `@dataclass` for simple data containers:
-
+### Dataclasses & Enums
 ```python
 @dataclass
 class StockSignal:
     symbol: str
-    name: str
     signal: SignalType
-    confidence: float  # 0-1
+    confidence: float
     reasons: List[str] = field(default_factory=list)
-    indicators: Dict[str, Any] = field(default_factory=dict)
-```
 
-### Error Handling
-
-- Use custom exceptions for domain-specific errors
-- Handle exceptions at appropriate boundaries (don't suppress silently)
-- Use `try/except` with specific exception types
-
-```python
-# Good
-if name not in cls._indicators:
-    raise ValueError(f"Unknown indicator: {name}")
-
-# Avoid
-try:
-    ...
-except:  # Too broad
-    pass
-```
-
-### Documentation
-
-Use Google-style docstrings for all public APIs:
-
-```python
-def get_kline(
-    self,
-    symbol: str,
-    period: str = "daily",
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-) -> List[KLine]:
-    """获取K线数据
-
-    Args:
-        symbol: 股票代码
-        period: K线周期 (daily/weekly/monthly)
-        start_date: 开始日期 (YYYY-MM-DD)
-        end_date: 结束日期 (YYYY-MM-DD)
-
-    Returns:
-        K线数据列表
-    """
-```
-
-### Registry Pattern
-
-Follow the established registry pattern for extensibility:
-
-```python
-class IndicatorRegistry:
-    _indicators: Dict[str, type] = {}
-
-    @classmethod
-    def register(cls, indicator_class: type):
-        if issubclass(indicator_class, Indicator):
-            cls._indicators[indicator_class.name.lower()] = indicator_class
-        return indicator_class
-```
-
-### Abstract Base Classes
-
-Use ABC for interfaces that require inheritance:
-
-```python
-class DataProvider(ABC):
-    name: str = ""
-
-    @abstractmethod
-    def get_quote(self, symbols: Union[str, List[str]]) -> Dict[str, Quote]:
-        pass
-```
-
-### Enum Usage
-
-Use Enums for fixed sets of values:
-
-```python
 class SignalType(Enum):
     BUY = "buy"
     SELL = "sell"
     HOLD = "hold"
-    STRONG_BUY = "strong_buy"
-    STRONG_SELL = "strong_sell"
 ```
 
-## Testing Guidelines
+## Period Constants
 
-- Place tests in a `tests/` directory at the project root
-- Follow naming: `test_<module>.py` (e.g., `test_backtest.py`)
-- Use pytest fixtures for common setup
-- Test one thing per test function
+The library supports the following period formats:
 
 ```python
-def test_position_pnl():
-    position = Position(symbol="sh600519", shares=100, avg_cost=50.0)
-    assert position.pnl(current_price=55.0) == 500.0
+from fine.period import Period, PERIOD_5M, PERIOD_15M, PERIOD_30M, PERIOD_1H, PERIOD_4H, PERIOD_1D, PERIOD_1W, PERIOD_1M
+
+# Supported periods:
+# - 5m: 5分钟
+# - 15m: 15分钟
+# - 30m: 30分钟
+# - 1h: 1小时
+# - 4h: 4小时
+# - 1d: 日线
+# - 1w: 周线
+# - 1M: 月线
 ```
 
-## File Organization
+## CLI Usage
 
-```
-fine/
-├── market_data/
-│   ├── __init__.py          # Public API exports
-│   ├── backtest.py          # Backtesting engine
-│   ├── fee.py               # Fee calculation
-│   ├── portfolio.py         # Portfolio management
-│   ├── risk.py              # Risk management
-│   ├── cache.py             # SQLite caching
-│   ├── providers.py         # Provider registry
-│   ├── providers/           # Data provider implementations
-│   ├── indicators/          # Technical indicators
-│   ├── strategies/          # Trading strategies
-│   └── strategy.py          # Strategy base classes
-├── tests/                   # Test files
-├── pyproject.toml           # Project configuration
-└── AGENTS.md               # This file
+### Backtest Command
+
+```bash
+# Run backtest with strategy file
+fine backtest --strategy /path/to/strategy.py
+
+# With output directory
+fine backtest --strategy /path/to/strategy.py --result /tmp
+
+# Full example
+fine backtest --strategy /tmp/my_strategy.py --symbols sh600519 --start 2024-01-01 --end 2024-12-31
 ```
 
-## Common Patterns
+### Output
 
-### Adding a New Data Provider
+When `--result` is specified, a markdown file with the same name as the strategy will be created in the output directory.
 
-1. Create provider in `market_data/providers/<name>.py`
-2. Inherit from `DataProvider` base class
-3. Implement required abstract methods
-4. Register in `market_data/providers/__init__.py`
+## Portfolio Module
 
-### Adding a New Indicator
+The Portfolio module manages positions, cash, and trading:
 
-1. Create indicator class in appropriate module under `market_data/indicators/`
-2. Inherit from `Indicator` base class
-3. Implement `compute()` method
-4. Register in `market_data/indicators/__init__.py`
+```python
+from fine.strategies.portfolio import Portfolio, FeeRate, Position, TradeResult
 
-### Adding a New Strategy
+# Create portfolio with cash and fee rate
+fee_rate = FeeRate(
+    commission_rate=0.0003,
+    min_commission=5.0,
+    stamp_duty=0.001,
+    transfer_fee=0.00002,
+)
+portfolio = Portfolio(cash=1000000.0, fee_rate=fee_rate)
 
-1. Create strategy in `market_data/strategies/custom/<name>.py`
-2. Inherit from `Strategy` base class
-3. Implement `generate_signals()` method
-4. Auto-discovery will register it automatically
+# Buy stocks
+result = portfolio.buy("sh600519", 1800.0, 100)
+if result.success:
+    print("Buy successful")
+
+# Sell stocks
+result = portfolio.sell("sh600519", 1850.0, 100)
+if result.success:
+    print("Sell successful")
+
+# Get position
+pos = portfolio.get_position("sh600519")
+if pos:
+    print(f"Shares: {pos.shares}, Profit: {pos.profit}%")
+
+# Get all positions
+all_positions = portfolio.get_all_positions()
+
+# Get cash balance
+print(f"Cash: {portfolio.cash}")
+```
+
+### FeeRate
+
+```python
+@dataclass
+class FeeRate:
+    commission_rate: float = 0.0003  # 佣金费率 (万三)
+    min_commission: float = 5.0       # 最低佣金
+    stamp_duty: float = 0.001         # 印花税 (千一，仅卖出)
+    transfer_fee: float = 0.00002     # 过户费 (万分之0.2)
+```
+
+### Position
+
+```python
+@dataclass
+class Position:
+    symbol: str           # 股票代码
+    shares: float         # 持仓数量
+    avg_cost: float      # 平均成本价
+    current_price: float # 当前价格
+    
+    # Properties
+    market_value: float  # 市值
+    cost: float         # 成本
+    profit: float       # 盈亏金额
+    profit_pct: float   # 盈亏比例 %
+```
+
+### TradeResult
+
+```python
+@dataclass
+class TradeResult:
+    success: bool         # 是否成功
+    message: str         # 成功或失败原因
+    shares: int          # 实际成交数量
+    amount: float        # 成交金额（不含手续费）
+    fee: float           # 总手续费
+    commission: float    # 佣金
+    stamp_duty: float   # 印花税
+    transfer_fee: float  # 过户费
+```
+
+## Strategy Module
+
+### Writing a Strategy
+
+Create a strategy by inheriting from `Strategy` and defining configuration as class attributes:
+
+```python
+from fine.strategies.strategy import Strategy
+from fine.period import Period
+from fine.strategies.portfolio import Portfolio
+from fine.strategies.data import Data
+from fine.strategies.indicators import Indicators
+
+
+class MyStrategy(Strategy):
+    # Strategy configuration (class attributes)
+    name = "my_strategy"
+    description = "My custom strategy"
+
+    # Trading parameters
+    symbols = ["sh600519", "sh600000"]  # Stock pool
+    cash = 1000000.0  # Initial capital
+    period = Period.DAY_1  # Time period
+    start_date = "2024-01-01"  # Start date
+    end_date = "2024-12-31"  # End date
+
+    # Fee configuration
+    commission_rate = 0.0003
+    min_commission = 5.0
+    stamp_duty = 0.001
+    transfer_fee = 0.00002
+
+    # Optional: benchmarks for comparison
+    benchmarks = ["sh000001"]
+
+    def compute(self, symbol: str, data: Data, indicators: Indicators, portfolio: Portfolio) -> None:
+        # Get current data
+        current = data.getCurrent()
+        close = current['close']
+
+        # Compute indicators
+        rsi_result = indicators.compute('RSI', data)
+        rsi = rsi_result.get('rsi', 50)
+
+        # Trading logic
+        if rsi < 30:
+            portfolio.buy(symbol, close, 100)
+        elif rsi > 70:
+            pos = portfolio.get_position(symbol)
+            if pos:
+                portfolio.sell(symbol, close, pos.shares)
+```
+
+### Strategy Configuration
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `name` | str | "base" | Strategy name |
+| `description` | str | "" | Strategy description |
+| `symbols` | List[str] | [] | Stock pool |
+| `cash` | float | 1000000.0 | Initial capital |
+| `period` | Period | Period.DAY_1 | Time period |
+| `start_date` | str | "" | Start date |
+| `end_date` | str | "" | End date |
+| `commission_rate` | float | 0.0003 | Commission rate |
+| `min_commission` | float | 5.0 | Minimum commission |
+| `stamp_duty` | float | 0.001 | Stamp duty (sell only) |
+| `transfer_fee` | float | 0.00002 | Transfer fee |
+| `benchmarks` | List[str] | [] | Benchmark symbols |
+
+### Data Object
+
+```python
+# Get current date
+date = data.getCurrentDate()
+
+# Get period type
+period = data.getPeriod()  # 1d, 1w, 1M
+
+# Get current period data
+current = data.getCurrent()
+# {'open': float, 'close': float, 'high': float, 'low': float, 'volume': int, 'date': str}
+
+# Get previous period data
+prev = data.getPrev()
+
+# Get historical data
+history = data.getHistory(5)
+
+# Get change percent
+change_pct = data.getChangePercent()
+
+# Get change amount
+change = data.getChange()
+
+# Get volume change
+volume_change = data.getVolumeChange()
+
+# Get average volume
+avg_volume = data.getAvgVolume(20)
+
+# Get price range
+price_range = data.getPriceRange()
+
+# Get highest/lowest price
+highest = data.getHighest(20)
+lowest = data.getLowest(20)
+
+# Get consecutive up/down days
+up_days = data.getConsecutiveUpDays()
+down_days = data.getConsecutiveDownDays()
+
+# Get moving average
+ma5 = data.getMA(5)
+
+# Get turnover rate
+turnover = data.getTurnover()
+
+# Get raw DataFrame
+df = data.df
+```
+
+### Indicators Object
+
+```python
+# indicators.compute(name, data, **kwargs)
+rsi = indicators.compute('RSI', data)
+macd = indicators.compute('MACD', data)
+ma5 = indicators.compute('MA', data)
+boll = indicators.compute('BOLL', data)
+kdj = indicators.compute('KDJ', data)
+
+# Get value
+rsi_value = rsi.get('rsi', 50)
+```
+
+### Portfolio Object
+
+```python
+# Buy stocks
+result = portfolio.buy(symbol, price, shares)
+if result.success:
+    print("Buy successful")
+
+# Sell stocks
+result = portfolio.sell(symbol, price, shares)
+if result.success:
+    print("Sell successful")
+
+# Get position
+pos = portfolio.get_position(symbol)
+if pos:
+    print(f"Shares: {pos.shares}, Profit: {pos.profit}%")
+
+# Get all positions
+all_positions = portfolio.get_all_positions()
+
+# Get cash balance
+print(f"Cash: {portfolio.cash}")
+
+# Get all trades
+trades = portfolio.trades
+```
+
+## Loading Strategies
+
+```python
+from fine.strategies import load_strategy_from_file, get_strategy
+
+# Load from file path
+strategy = get_strategy("/path/to/strategy.py")
+
+# Or directly
+strategy = load_strategy_from_file("/path/to/strategy.py")
+```
+
+## Testing
+- Tests in `tests/` directory
+- Naming: `test_<module>.py`
+- One assertion per test
+
+## Data Cache
+
+Data caching accelerates repeated data fetching:
+
+```python
+from fine.providers import MarketData
+
+# First fetch reads from provider and caches
+market_data = MarketData(provider="baostock")
+klines = market_data.get_kline("sh600519", period="1d", 
+                                start_date="2024-01-01", end_date="2024-12-31")
+
+# Subsequent fetches read from cache
+klines = market_data.get_kline("sh600519", period="1d", 
+                                start_date="2024-01-01", end_date="2024-12-31")
+```
+
+- Cache directory: `~/.config/fine/store/`
+- File format: `{symbol}_{period}_{start}_{end}.csv`
+- Cache never expires
+
+### CLI Cache Usage
+
+Both `fine data` and `fine backtest` commands use cache automatically:
+
+```bash
+# First run - fetches from provider
+fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d --provider baostock
+
+# Second run - uses cache
+fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d --provider baostock
+```
