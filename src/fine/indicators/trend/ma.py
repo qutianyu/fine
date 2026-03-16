@@ -1,5 +1,7 @@
 from typing import Dict, List
+
 import numpy as np
+
 from ..base import Indicator
 
 

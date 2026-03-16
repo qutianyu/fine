@@ -1,6 +1,7 @@
-from abc import abstractmethod, ABC
-from typing import Dict
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Dict
+
 import numpy as np
 
 

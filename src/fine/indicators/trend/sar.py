@@ -1,5 +1,7 @@
 from typing import Dict
+
 import numpy as np
+
 from ..base import Indicator
 
 
@@ -71,9 +73,7 @@ class SAR(Indicator):
         }
 
     @staticmethod
-    def _get_signal(
-        sar: np.ndarray, close: np.ndarray, trend: np.ndarray
-    ) -> np.ndarray:
+    def _get_signal(sar: np.ndarray, close: np.ndarray, trend: np.ndarray) -> np.ndarray:
         signal = np.full(len(sar), "hold")
         for i in range(1, len(sar)):
             if trend[i] == 1 and trend[i - 1] == -1:

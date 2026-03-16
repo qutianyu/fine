@@ -1,7 +1,9 @@
-from typing import Optional, Dict, List, Union
 from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Union
+
 import yfinance as yf
-from .base import DataProvider, Quote, KLine, MinuteData, StockInfo, to_provider_period
+
+from .base import DataProvider, KLine, MinuteData, Quote, StockInfo, to_provider_period
 
 
 def _safe_float(value, default=0.0) -> float:
@@ -42,7 +44,7 @@ class YFinanceProvider(DataProvider):
 
     @staticmethod
     def _period_to_yf(period: str) -> str:
-        """Convert standard period to yfinance format"""
+        """将标准周期转换为 yfinance 格式"""
         provider_period = to_provider_period(period)
         yf_map = {
             "5": "5m",
@@ -69,9 +71,7 @@ class YFinanceProvider(DataProvider):
                 result[symbol] = Quote(
                     symbol=symbol,
                     name=info.get("shortName", info.get("symbol", symbol)),
-                    price=_safe_float(
-                        info.get("currentPrice", info.get("regularMarketPrice", 0))
-                    ),
+                    price=_safe_float(info.get("currentPrice", info.get("regularMarketPrice", 0))),
                     change=_safe_float(info.get("regularMarketChange", 0)),
                     change_pct=_safe_float(info.get("regularMarketChangePercent", 0)),
                     volume=int(_safe_float(info.get("volume", 0))),
@@ -112,9 +112,7 @@ class YFinanceProvider(DataProvider):
         yf_period = self._period_to_yf(period)
 
         start = (
-            start_date
-            if start_date
-            else (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+            start_date if start_date else (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
         )
         end = end_date if end_date else datetime.now().strftime("%Y-%m-%d")
 
@@ -178,9 +176,7 @@ class YFinanceProvider(DataProvider):
         return StockInfo(
             symbol=symbol,
             name=info.get("shortName", symbol),
-            price=_safe_float(
-                info.get("currentPrice", info.get("regularMarketPrice", 0))
-            ),
+            price=_safe_float(info.get("currentPrice", info.get("regularMarketPrice", 0))),
             change_pct=_safe_float(info.get("regularMarketChangePercent", 0)),
             pe=_safe_float(info.get("trailingPE", 0)),
             pe_ttm=_safe_float(info.get("trailingPE", 0)),
@@ -196,15 +192,19 @@ class YFinanceProvider(DataProvider):
             low_52w=_safe_float(info.get("fiftyTwoWeekLow", 0)),
             eps=_safe_float(info.get("trailingEps", 0)),
             bps=0.0,
-            roe=_safe_float(info.get("returnOnEquity", 0)) * 100
-            if info.get("returnOnEquity")
-            else 0.0,
-            gross_margin=_safe_float(info.get("grossMargins", 0)) * 100
-            if info.get("grossMargins")
-            else 0.0,
-            net_margin=_safe_float(info.get("profitMargins", 0)) * 100
-            if info.get("profitMargins")
-            else 0.0,
+            roe=(
+                _safe_float(info.get("returnOnEquity", 0)) * 100
+                if info.get("returnOnEquity")
+                else 0.0
+            ),
+            gross_margin=(
+                _safe_float(info.get("grossMargins", 0)) * 100 if info.get("grossMargins") else 0.0
+            ),
+            net_margin=(
+                _safe_float(info.get("profitMargins", 0)) * 100
+                if info.get("profitMargins")
+                else 0.0
+            ),
             revenue=_safe_float(info.get("revenue", 0)),
             profit=_safe_float(info.get("netIncomeToCommon", 0)),
             source=self.name,

@@ -3,18 +3,29 @@
 Fine CLI - Command Line Interface for Fine
 
 Usage:
-    fine backtest --cash 1000000 --symbols sh600519 --start 2024-01-01 --end 2024-12-31
+    fine backtest --cash 1000000 --data /path/to/data.csv --strategy /path/to/strategy.py
     fine data --symbols sh600519,sh600001 --date 2024-01-01,2025-01-01 --period 1d --result /tmp
     fine calculate --indicator kdj,macd --data /tmp/20260314191231.csv --result /tmp
 """
 
 import argparse
-import os
 import csv
+import os
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
+
+import numpy as np
+import pandas as pd
+
+from fine.config import get_config
+from fine.indicators import TechnicalIndicators
+from fine.providers import MarketData
+from fine.strategies import get_strategy
+
+from .commands import run_backtest
 
 __version__ = "0.1.0"
 
@@ -22,8 +33,6 @@ __version__ = "0.1.0"
 def _load_config() -> Dict[str, Any]:
     """加载配置文件"""
     try:
-        from fine.config import get_config
-
         config = get_config()
         return {"provider": config.provider, "period": config.period}
     except Exception:
@@ -56,17 +65,18 @@ def _cmd_data(args) -> int:
     end_date = date_range[1].strip()
     period = args.period or "1d"
     provider_name = args.provider or "akshare"
+    force = args.force
     result_dir = Path(os.path.expanduser(args.result)) if args.result else Path(".")
 
     try:
-        from fine.providers import MarketData
-
         market_data = MarketData(provider=provider_name)
 
         all_klines: List[Dict[str, Any]] = []
 
         for symbol in symbols:
-            klines = market_data.get_kline(symbol, period=period, start_date=start_date, end_date=end_date)
+            klines = market_data.get_kline(
+                symbol, period=period, start_date=start_date, end_date=end_date, force=force
+            )
             for kl in klines:
                 all_klines.append(
                     {
@@ -100,8 +110,6 @@ def _cmd_data(args) -> int:
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
-        import traceback
-
         traceback.print_exc()
         return 1
 
@@ -117,11 +125,6 @@ def _cmd_calculate(args) -> int:
         return 1
 
     try:
-        import pandas as pd
-        import numpy as np
-
-        from fine.indicators import TechnicalIndicators
-
         df = pd.read_csv(data_file)
 
         required_cols = {"symbol", "date", "open", "close", "high", "low", "volume"}
@@ -169,7 +172,10 @@ def _cmd_calculate(args) -> int:
                                 if i < result.shape[1]:
                                     group[col] = result[:, i]
                 except Exception as e:
-                    print(f"Warning: Failed to compute {ind_name} for {symbol}: {e}", file=sys.stderr)
+                    print(
+                        f"Warning: Failed to compute {ind_name} for {symbol}: {e}",
+                        file=sys.stderr,
+                    )
 
             result_dfs.append(group)
 
@@ -190,56 +196,77 @@ def _cmd_calculate(args) -> int:
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
-        import traceback
-
         traceback.print_exc()
         return 1
 
 
 def _cmd_backtest(args) -> int:
     """运行回测"""
-    defaults = _load_config()
+    data_file = Path(args.data)
+
+    if not data_file.exists():
+        print(f"Error: Data file not found: {data_file}", file=sys.stderr)
+        return 1
 
     try:
-        from ..strategies import get_strategy
+        df = pd.read_csv(data_file)
+
+        required_cols = {"symbol", "date", "open", "close", "high", "low", "volume"}
+        if not required_cols.issubset(set(df.columns)):
+            print(f"Error: CSV must contain columns: {required_cols}", file=sys.stderr)
+            return 1
+
+        symbols = df["symbol"].unique().tolist()
+        start_date = df["date"].min()
+        end_date = df["date"].max()
+
+    except Exception as e:
+        print(f"Error reading data file: {e}", file=sys.stderr)
+        return 1
+
+    try:
         strategy = get_strategy(args.strategy)
     except Exception as e:
         print(f"Error loading strategy: {e}")
         return 1
 
-    strategy_name = getattr(strategy, 'name', 'strategy')
-    symbols = args.symbols if args.symbols else getattr(strategy, 'symbols', [])
-    if isinstance(symbols, str):
-        symbols = symbols.replace(",", " ").split()
+    strategy_name = getattr(strategy, "name", "strategy")
 
     config = {
-        "cash": args.cash if args.cash is not None else getattr(strategy, 'cash', 1000000),
+        "cash": args.cash if args.cash is not None else getattr(strategy, "cash", 1000000),
+        "data_file": str(data_file),
         "symbols": symbols,
-        "provider": args.provider or defaults.get("provider", "akshare"),
         "strategy": args.strategy,
         "strategy_name": strategy_name,
-        "period": args.period or getattr(strategy, 'period', '1d'),
-        "start_date": args.start or getattr(strategy, 'start_date', ''),
-        "end_date": args.end or getattr(strategy, 'end_date', ''),
+        "period": args.period or getattr(strategy, "period", "1d"),
+        "start_date": start_date,
+        "end_date": end_date,
         "fee_rate": {
-            "commission_rate": args.commission if args.commission is not None else getattr(strategy, 'commission_rate', 0.0003),
-            "min_commission": args.min_commission if args.min_commission is not None else getattr(strategy, 'min_commission', 5.0),
-            "stamp_duty": args.stamp_duty if args.stamp_duty is not None else getattr(strategy, 'stamp_duty', 0.001),
-            "transfer_fee": args.transfer_fee if args.transfer_fee is not None else getattr(strategy, 'transfer_fee', 0.00002),
+            "commission_rate": (
+                args.commission
+                if args.commission is not None
+                else getattr(strategy, "commission_rate", 0.0003)
+            ),
+            "min_commission": (
+                args.min_commission
+                if args.min_commission is not None
+                else getattr(strategy, "min_commission", 5.0)
+            ),
+            "stamp_duty": (
+                args.stamp_duty
+                if args.stamp_duty is not None
+                else getattr(strategy, "stamp_duty", 0.001)
+            ),
+            "transfer_fee": (
+                args.transfer_fee
+                if args.transfer_fee is not None
+                else getattr(strategy, "transfer_fee", 0.00002)
+            ),
         },
         "result": args.result,
     }
 
-    if not config["symbols"]:
-        print("Error: No symbols specified. Provide --symbols or define symbols in strategy class.")
-        return 1
-    if not config["start_date"] or not config["end_date"]:
-        print("Error: Start and end dates required. Provide --start/--end or define start_date/end_date in strategy class.")
-        return 1
-
     try:
-        from .commands import run_backtest
-
         result = run_backtest(config)
 
         output = []
@@ -267,34 +294,50 @@ def _cmd_backtest(args) -> int:
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
-        import traceback
-
         traceback.print_exc()
         return 1
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(prog="fine", description="Fine - Python Market Data and Trading Backtesting Library")
+    parser = argparse.ArgumentParser(
+        prog="fine", description="Fine - Python Market Data and Trading Backtesting Library"
+    )
 
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
     data_parser = subparsers.add_parser("data", help="Fetch stock data")
-    data_parser.add_argument("--symbols", type=str, required=True, help="Stock symbols (comma or space separated)")
+    data_parser.add_argument(
+        "--symbols", type=str, required=True, help="Stock symbols (comma or space separated)"
+    )
     data_parser.add_argument("--date", type=str, required=True, help="Date range (start,end)")
-    data_parser.add_argument("--period", type=str, default="1d", choices=["5m", "15m", "30m", "1h", "4h", "1d", "1w", "1M"], help="Period (default: 1d)")
-    data_parser.add_argument("--provider", type=str, choices=["akshare", "baostock", "yfinance", "baidu"], help="Data provider")
+    data_parser.add_argument(
+        "--period",
+        type=str,
+        default="1d",
+        choices=["1h", "1d", "1w", "1M"],
+        help="Period (default: 1d)",
+    )
+    data_parser.add_argument(
+        "--provider",
+        type=str,
+        default="akshare",
+        choices=["akshare", "baostock", "yfinance", "baidu"],
+        help="Data provider (default: akshare)",
+    )
+    data_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force fetch from data source, ignore cache",
+    )
     data_parser.add_argument("--result", type=str, help="Output directory")
 
     backtest_parser = subparsers.add_parser("backtest", help="Run backtest")
     backtest_parser.add_argument("--cash", type=float, help="Initial cash")
-    backtest_parser.add_argument("--symbols", type=str, help="Stock symbols (comma or space separated)")
-    backtest_parser.add_argument("--provider", type=str, help="Data provider")
+    backtest_parser.add_argument("--data", type=str, required=True, help="Data CSV file")
     backtest_parser.add_argument("--strategy", type=str, required=True, help="Strategy file path")
     backtest_parser.add_argument("--period", type=str, help="Period")
-    backtest_parser.add_argument("--start", type=str, help="Start date (YYYY-MM-DD)")
-    backtest_parser.add_argument("--end", type=str, help="End date (YYYY-MM-DD)")
     backtest_parser.add_argument("--commission", type=float, help="Commission rate")
     backtest_parser.add_argument("--min-commission", type=float, help="Minimum commission")
     backtest_parser.add_argument("--stamp-duty", type=float, help="Stamp duty rate")
@@ -302,7 +345,9 @@ def main() -> int:
     backtest_parser.add_argument("--result", type=str, help="Output directory")
 
     calc_parser = subparsers.add_parser("calculate", help="Calculate technical indicators")
-    calc_parser.add_argument("--indicator", type=str, required=True, help="Indicators (comma separated)")
+    calc_parser.add_argument(
+        "--indicator", type=str, required=True, help="Indicators (comma separated)"
+    )
     calc_parser.add_argument("--data", type=str, required=True, help="Input CSV file")
     calc_parser.add_argument("--result", type=str, help="Output directory")
 

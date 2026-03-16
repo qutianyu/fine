@@ -83,14 +83,10 @@ class SignalType(Enum):
 The library supports the following period formats:
 
 ```python
-from fine.period import Period, PERIOD_5M, PERIOD_15M, PERIOD_30M, PERIOD_1H, PERIOD_4H, PERIOD_1D, PERIOD_1W, PERIOD_1M
+from fine.period import Period, PERIOD_1H, PERIOD_1D, PERIOD_1W, PERIOD_1M
 
 # Supported periods:
-# - 5m: 5分钟
-# - 15m: 15分钟
-# - 30m: 30分钟
 # - 1h: 1小时
-# - 4h: 4小时
 # - 1d: 日线
 # - 1w: 周线
 # - 1M: 月线
@@ -101,14 +97,14 @@ from fine.period import Period, PERIOD_5M, PERIOD_15M, PERIOD_30M, PERIOD_1H, PE
 ### Backtest Command
 
 ```bash
-# Run backtest with strategy file
-fine backtest --strategy /path/to/strategy.py
+# Run backtest with data file and strategy file
+fine backtest --data /path/to/data.csv --strategy /path/to/strategy.py
 
 # With output directory
-fine backtest --strategy /path/to/strategy.py --result /tmp
+fine backtest --data /path/to/data.csv --strategy /path/to/strategy.py --result /tmp
 
 # Full example
-fine backtest --strategy /tmp/my_strategy.py --symbols sh600519 --start 2024-01-01 --end 2024-12-31
+fine backtest --data /tmp/data.csv --strategy /tmp/my_strategy.py --cash 1000000
 ```
 
 ### Output
@@ -385,17 +381,18 @@ Data caching accelerates repeated data fetching:
 from fine.providers import MarketData
 
 # First fetch reads from provider and caches
-market_data = MarketData(provider="baostock")
-klines = market_data.get_kline("sh600519", period="1d", 
+market_data = MarketData(provider="akshare")
+klines = market_data.get_kline("sh600519", period="1d",
                                 start_date="2024-01-01", end_date="2024-12-31")
 
 # Subsequent fetches read from cache
-klines = market_data.get_kline("sh600519", period="1d", 
+klines = market_data.get_kline("sh600519", period="1d",
                                 start_date="2024-01-01", end_date="2024-12-31")
 ```
 
 - Cache directory: `~/.config/fine/store/`
-- File format: `{symbol}_{period}_{start}_{end}.csv`
+- File format: `{symbol}_{period}.csv` (e.g., `sh600519_1d.csv`)
+- Stock info cache: `stock_info.csv`
 - Cache never expires
 
 ### CLI Cache Usage
@@ -404,8 +401,11 @@ Both `fine data` and `fine backtest` commands use cache automatically:
 
 ```bash
 # First run - fetches from provider
-fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d --provider baostock
+fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d
 
 # Second run - uses cache
-fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d --provider baostock
+fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d
+
+# Force refresh - fetch from provider and update cache
+fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d --force
 ```

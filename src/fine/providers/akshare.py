@@ -1,6 +1,7 @@
-from typing import Optional, Dict, List, Union
 from datetime import datetime, timedelta
-from .base import DataProvider, Quote, KLine, MinuteData, StockInfo, to_provider_period
+from typing import Dict, List, Optional, Union
+
+from .base import DataProvider, KLine, MinuteData, Quote, StockInfo, to_provider_period
 
 
 def _safe_float(value, default=0.0) -> float:
@@ -38,9 +39,7 @@ class AkshareProvider(DataProvider):
         if symbols:
             if isinstance(symbols, str):
                 symbols = [symbols]
-            symbols = [
-                s.replace("hk", "") if s.startswith("hk") else s for s in symbols
-            ]
+            symbols = [s.replace("hk", "") if s.startswith("hk") else s for s in symbols]
             df = df[df["代码"].isin(symbols)]
             result = {}
             for _, row in df.iterrows():
@@ -212,8 +211,16 @@ class AkshareProvider(DataProvider):
 
         symbol_code = symbol.replace("hk", "")
 
-        start_date_dt = datetime.strptime(start_date, "%Y%m%d").date() if start_date.isdigit() else datetime.strptime(start_date, "%Y-%m-%d").date()
-        end_date_dt = datetime.strptime(end_date, "%Y%m%d").date() if end_date.isdigit() else datetime.strptime(end_date, "%Y-%m-%d").date()
+        start_date_dt = (
+            datetime.strptime(start_date, "%Y%m%d").date()
+            if start_date.isdigit()
+            else datetime.strptime(start_date, "%Y-%m-%d").date()
+        )
+        end_date_dt = (
+            datetime.strptime(end_date, "%Y%m%d").date()
+            if end_date.isdigit()
+            else datetime.strptime(end_date, "%Y-%m-%d").date()
+        )
 
         try:
             df = ak.stock_hk_daily(symbol=symbol_code)
@@ -260,9 +267,7 @@ class AkshareProvider(DataProvider):
                         time=str(row["day"]),
                         price=float(row["close"]),
                         volume=int(row["volume"]),
-                        amount=float(row["amount"])
-                        if "amount" in row and row["amount"]
-                        else 0,
+                        amount=float(row["amount"]) if "amount" in row and row["amount"] else 0,
                         source=self.name,
                     )
                 )

@@ -6,10 +6,12 @@ Usage:
     klines = provider.get_kline("sh600519", period="1d", start_date="2024-01-01", end_date="2024-12-31")
 """
 
-from typing import Optional, Dict, List, Union
 from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Union
+
 import requests
-from .base import DataProvider, Quote, KLine, MinuteData, StockInfo, to_provider_period
+
+from .base import DataProvider, KLine, MinuteData, Quote, StockInfo, to_provider_period
 
 
 def _safe_float(value, default=0.0) -> float:
@@ -34,7 +36,7 @@ def _safe_int(value, default=0) -> int:
 
 class BaiduProvider(DataProvider):
     """百度股市通数据提供者
-    
+
     支持获取A股、港股、美股的K线数据
     """
 
@@ -86,7 +88,12 @@ class BaiduProvider(DataProvider):
         result = {}
         for symbol in symbols:
             try:
-                klines = self.get_kline(symbol, period="1d", start_date=datetime.now().strftime("%Y-%m-%d"), end_date=datetime.now().strftime("%Y-%m-%d"))
+                klines = self.get_kline(
+                    symbol,
+                    period="1d",
+                    start_date=datetime.now().strftime("%Y-%m-%d"),
+                    end_date=datetime.now().strftime("%Y-%m-%d"),
+                )
                 if klines:
                     latest = klines[0]
                     result[symbol] = Quote(
@@ -94,7 +101,11 @@ class BaiduProvider(DataProvider):
                         name=symbol,
                         price=latest.close,
                         change=latest.close - latest.open,
-                        change_pct=((latest.close - latest.open) / latest.open * 100) if latest.open > 0 else 0,
+                        change_pct=(
+                            ((latest.close - latest.open) / latest.open * 100)
+                            if latest.open > 0
+                            else 0
+                        ),
                         volume=latest.volume,
                         amount=0.0,
                         open=latest.open,
@@ -134,7 +145,7 @@ class BaiduProvider(DataProvider):
         end_date: Optional[str] = None,
     ) -> List[KLine]:
         """获取K线数据
-        
+
         Args:
             symbol: 股票代码 (如 sh600519)
             period: 周期 (5m, 15m, 30m, 1h, 4h, 1d, 1w, 1M)

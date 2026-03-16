@@ -1,5 +1,7 @@
+from typing import Dict, List, Optional, Union
+
 import requests
-from typing import Optional, Dict, List, Union
+
 from .base import DataProvider, Quote, StockInfo
 
 

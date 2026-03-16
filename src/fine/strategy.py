@@ -8,14 +8,15 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Union, Any
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any, Dict, List, Optional, Union
+
 import numpy as np
 import pandas as pd
 
-from .providers import MarketData
 from .indicators import TechnicalIndicators
+from .providers import MarketData
 
 
 class SignalType(Enum):
@@ -387,9 +388,7 @@ class MovingAverageStrategy(Strategy):
     name = "moving_average"
     description = "MA金叉/死叉策略"
 
-    def __init__(
-        self, short_period: int = 5, long_period: int = 20, use_ema: bool = False
-    ):
+    def __init__(self, short_period: int = 5, long_period: int = 20, use_ema: bool = False):
         self.short_period = short_period
         self.long_period = long_period
         self.use_ema = use_ema
@@ -399,9 +398,7 @@ class MovingAverageStrategy(Strategy):
     ) -> StrategyResult:
         signals = []
         ti = TechnicalIndicators()
-        IndicatorClass = (
-            ti.get_indicator("EMA") if self.use_ema else ti.get_indicator("MA")
-        )
+        IndicatorClass = ti.get_indicator("EMA") if self.use_ema else ti.get_indicator("MA")
 
         for symbol in symbols:
             try:
@@ -424,9 +421,7 @@ class MovingAverageStrategy(Strategy):
                     continue
 
                 # 判断金叉/死叉
-                prev_short = (
-                    short_ma[-2] if not np.isnan(short_ma[-2]) else short_ma[-1]
-                )
+                prev_short = short_ma[-2] if not np.isnan(short_ma[-2]) else short_ma[-1]
                 prev_long = long_ma[-2] if not np.isnan(long_ma[-2]) else long_ma[-1]
 
                 signal_type = SignalType.HOLD
@@ -611,17 +606,11 @@ class BrickChartStrategy(Strategy):
 
         # HHV(HIGH, 4)
         hhv = np.array(
-            [
-                np.max(high[max(0, i - self.period_high + 1) : i + 1])
-                for i in range(len(high))
-            ]
+            [np.max(high[max(0, i - self.period_high + 1) : i + 1]) for i in range(len(high))]
         )
         # LLV(LOW, 4)
         llv = np.array(
-            [
-                np.min(low[max(0, i - self.period_low + 1) : i + 1])
-                for i in range(len(low))
-            ]
+            [np.min(low[max(0, i - self.period_low + 1) : i + 1]) for i in range(len(low))]
         )
 
         # VAR1A = (HHV(HIGH,4) - CLOSE) / (HHV(HIGH,4) - LLV(LOW,4)) * 100 - 90
@@ -856,9 +845,7 @@ class StrategyRegistry:
     @classmethod
     def get(cls, name: str) -> Strategy:
         if name not in cls._strategies:
-            raise ValueError(
-                f"Unknown strategy: {name}. Available: {list(cls._strategies.keys())}"
-            )
+            raise ValueError(f"Unknown strategy: {name}. Available: {list(cls._strategies.keys())}")
         return cls._strategies[name]()
 
     @classmethod
@@ -934,9 +921,7 @@ class SimpleFunctionStrategy(Strategy):
         self, symbols: List[str], market_data: MarketData, **kwargs
     ) -> StrategyResult:
         if self.signal_fn is None:
-            return StrategyResult(
-                signals=[], selected=[], metadata={"error": "No signal function"}
-            )
+            return StrategyResult(signals=[], selected=[], metadata={"error": "No signal function"})
 
         signals = []
         ti = TechnicalIndicators()
@@ -1049,9 +1034,7 @@ class StrategyBuilder:
         self, indicator: str, operator: str, value: float, period: int = 1
     ) -> "StrategyBuilder":
         self._conditions.append(
-            IndicatorCondition(
-                indicator=indicator, operator=operator, value=value, period=period
-            )
+            IndicatorCondition(indicator=indicator, operator=operator, value=value, period=period)
         )
         if indicator not in self._indicators:
             self._indicators.append(indicator)
@@ -1157,11 +1140,7 @@ class _CustomSignalStrategy(Strategy):
                     "low": df["low"].values,
                 }
 
-                passed = (
-                    all(c.evaluate(data) for c in self.conditions)
-                    if self.conditions
-                    else True
-                )
+                passed = all(c.evaluate(data) for c in self.conditions) if self.conditions else True
 
                 if passed:
                     signal_type, confidence, reason = self.signal_fn(
@@ -1315,19 +1294,13 @@ class EnsembleStrategy(Strategy):
                     price=signals[0].price,
                 )
 
-        buy_count = sum(
-            1 for s in signals if s.signal in [SignalType.BUY, SignalType.STRONG_BUY]
-        )
+        buy_count = sum(1 for s in signals if s.signal in [SignalType.BUY, SignalType.STRONG_BUY])
         sell_count = sum(
             1 for s in signals if s.signal in [SignalType.SELL, SignalType.STRONG_SELL]
         )
 
         if buy_count > sell_count:
-            signal_type = (
-                SignalType.STRONG_BUY
-                if buy_count > len(signals) // 2
-                else SignalType.BUY
-            )
+            signal_type = SignalType.STRONG_BUY if buy_count > len(signals) // 2 else SignalType.BUY
             return StockSignal(
                 symbol=signals[0].symbol,
                 name=signals[0].name,
@@ -1339,9 +1312,7 @@ class EnsembleStrategy(Strategy):
             )
         elif sell_count > buy_count:
             signal_type = (
-                SignalType.STRONG_SELL
-                if sell_count > len(signals) // 2
-                else SignalType.SELL
+                SignalType.STRONG_SELL if sell_count > len(signals) // 2 else SignalType.SELL
             )
             return StockSignal(
                 symbol=signals[0].symbol,

@@ -6,17 +6,12 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, List, Union
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
-
+from typing import Dict, List, Optional, Union
 
 PERIOD_MAP = {
-    "5m": "5",
-    "15m": "15",
-    "30m": "30",
     "1h": "60",
-    "4h": "240",
     "1d": "daily",
     "daily": "daily",
     "1w": "weekly",
@@ -27,21 +22,17 @@ PERIOD_MAP = {
 
 
 def normalize_period(period: str) -> str:
-    """Normalize period string to standard format
+    """标准化周期字符串为标准格式
 
     Args:
-        period: Period string (e.g., "5m", "daily", "1d")
+        period: 周期字符串 (如 "1h", "daily", "1d")
 
     Returns:
-        Normalized period: 5m, 15m, 30m, 1h, 4h, 1d, 1w, 1M
+        标准化的周期: 1h, 1d, 1w, 1M
     """
     period_lower = period.lower()
     mapping = {
-        "5": "5m",
-        "15": "15m",
-        "30": "30m",
         "60": "1h",
-        "240": "4h",
         "daily": "1d",
         "1d": "1d",
         "weekly": "1w",
@@ -53,13 +44,13 @@ def normalize_period(period: str) -> str:
 
 
 def to_provider_period(period: str) -> str:
-    """Convert period to provider-specific format
+    """将周期转换为数据源特定格式
 
     Args:
-        period: Period in standard format (5m, 15m, 30m, 1h, 4h, 1d, 1w, 1M)
+        period: 标准格式周期 (1h, 1d, 1w, 1M)
 
     Returns:
-        Provider format (5, 15, 30, 60, 240, daily, weekly, monthly)
+        数据源格式 (60, daily, weekly, monthly)
     """
     return PERIOD_MAP.get(period, "daily")
 
@@ -333,7 +324,7 @@ class DataProvider(ABC):
 
         Args:
             symbol: 股票代码
-            period: K线周期 (5m, 15m, 30m, 1h, 4h, 1d, 1w, 1M)
+            period: K线周期 (1h, 1d, 1w, 1M)
             start_date: 开始日期 (YYYY-MM-DD)
             end_date: 结束日期 (YYYY-MM-DD)
 

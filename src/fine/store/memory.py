@@ -5,7 +5,7 @@ from .base import Store
 
 
 class MemoryStore(Store):
-    """In-memory store for testing with structured data support"""
+    """内存存储，用于测试，支持结构化数据"""
 
     def __init__(self):
         self._store: Dict[str, Any] = {}
@@ -92,3 +92,12 @@ class MemoryStore(Store):
     def save_klines(self, klines: List[Dict[str, Any]]) -> None:
         self._klines.extend(klines)
 
+    def save_stock_info(self, stock_info: Dict[str, Any]) -> None:
+        symbol = stock_info.get("symbol", "")
+        if symbol:
+            self._stock_info = getattr(self, "_stock_info", {})
+            self._stock_info[symbol] = stock_info
+
+    def load_stock_info(self, symbol: str) -> Optional[Dict[str, Any]]:
+        stock_info = getattr(self, "_stock_info", {})
+        return stock_info.get(symbol)

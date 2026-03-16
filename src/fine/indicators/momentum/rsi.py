@@ -1,5 +1,7 @@
 from typing import Dict
+
 import numpy as np
+
 from ..base import Indicator
 
 
@@ -30,9 +32,7 @@ class RSI(Indicator):
         return {"rsi": rsi, "signal": self._get_signal(rsi)}
 
     @staticmethod
-    def _get_signal(
-        rsi: np.ndarray, overbought: float = 70, oversold: float = 30
-    ) -> np.ndarray:
+    def _get_signal(rsi: np.ndarray, overbought: float = 70, oversold: float = 30) -> np.ndarray:
         signal = np.full(len(rsi), "hold")
         for i in range(1, len(rsi)):
             if rsi[i] < oversold and rsi[i - 1] >= oversold:

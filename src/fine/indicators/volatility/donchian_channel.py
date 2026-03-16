@@ -1,14 +1,14 @@
 from typing import Dict
+
 import numpy as np
+
 from ..base import Indicator
 
 
 class DonchianChannel(Indicator):
     name = "DONCHIAN"
 
-    def compute(
-        self, high: np.ndarray, low: np.ndarray, period: int = 20
-    ) -> Dict[str, np.ndarray]:
+    def compute(self, high: np.ndarray, low: np.ndarray, period: int = 20) -> Dict[str, np.ndarray]:
         upper = np.zeros(len(high))
         middle = np.zeros(len(high))
         lower = np.zeros(len(low))

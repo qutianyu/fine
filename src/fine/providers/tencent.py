@@ -1,6 +1,8 @@
+from typing import Dict, List, Optional, Union
+
 import requests
-from typing import Optional, Dict, List, Union
-from .base import DataProvider, Quote, KLine, MinuteData, StockInfo
+
+from .base import DataProvider, KLine, MinuteData, Quote, StockInfo
 
 
 def _safe_float(value, default=0.0) -> float:
@@ -147,9 +149,7 @@ class TencentProvider(DataProvider):
 
                 price = _safe_float(info[3])
                 prev_close = _safe_float(info[4])
-                change_pct = (
-                    ((price - prev_close) / prev_close * 100) if prev_close else 0
-                )
+                change_pct = ((price - prev_close) / prev_close * 100) if prev_close else 0
                 # 腾讯API字段索引 (基于搜索结果):
                 # info[38]: 市盈率
                 # info[39]: 涨跌

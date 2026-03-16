@@ -1,6 +1,7 @@
-from typing import Dict, Any, List
-import pandas as pd
 from datetime import datetime, timedelta
+from typing import Any, Dict, List
+
+import pandas as pd
 
 
 class Data:
@@ -65,7 +66,7 @@ class Data:
 
         Args:
             date: 当前日期 (YYYY-MM-DD格式)
-            period: 时间周期 (5m, 15m, 30m, 1h, 4h, 1d, 1w, 1M)
+            period: 时间周期 (1h, 1d, 1w, 1M)
             df: K线数据 DataFrame
         """
         self._date = date
@@ -94,11 +95,7 @@ class Data:
     def _get_period_minutes(self) -> int:
         """获取周期对应的分钟数"""
         mapping = {
-            "5m": 5,
-            "15m": 15,
-            "30m": 30,
             "1h": 60,
-            "4h": 240,
             "1d": 1440,
             "1w": 10080,
             "1M": 43200,
@@ -117,43 +114,43 @@ class Data:
         if self._df is None or len(self._df) == 0:
             return self._date
 
-        if 'date' not in self._df.columns:
+        if "date" not in self._df.columns:
             return self._date
 
-        dates = pd.to_datetime(self._df['date'])
+        dates = pd.to_datetime(self._df["date"])
         current = pd.to_datetime(self._date)
 
         if offset == 0:
             if current >= dates.max():
-                return dates.max().strftime('%Y-%m-%d')
-            return current.strftime('%Y-%m-%d')
+                return dates.max().strftime("%Y-%m-%d")
+            return current.strftime("%Y-%m-%d")
 
-        if self._period in ('5m', '15m', '30m', '1h', '4h'):
+        if self._period in ("1h",):
             period_minutes = self._get_period_minutes()
             target = current + timedelta(minutes=period_minutes * offset)
             while True:
                 if dates.max() >= target:
                     filtered = dates[dates <= target]
                     if len(filtered) > 0:
-                        return filtered.max().strftime('%Y-%m-%d')
-                    return dates.min().strftime('%Y-%m-%d')
+                        return filtered.max().strftime("%Y-%m-%d")
+                    return dates.min().strftime("%Y-%m-%d")
                 else:
                     break
-            return dates.max().strftime('%Y-%m-%d')
+            return dates.max().strftime("%Y-%m-%d")
 
-        elif self._period == '1d':
+        elif self._period == "1d":
             target = current + timedelta(days=offset)
             while True:
                 if dates.max() >= target:
                     filtered = dates[dates <= target]
                     if len(filtered) > 0:
-                        return filtered.max().strftime('%Y-%m-%d')
-                    return dates.min().strftime('%Y-%m-%d')
+                        return filtered.max().strftime("%Y-%m-%d")
+                    return dates.min().strftime("%Y-%m-%d")
                 else:
                     break
-            return dates.max().strftime('%Y-%m-%d')
+            return dates.max().strftime("%Y-%m-%d")
 
-        elif self._period == '1w':
+        elif self._period == "1w":
             weekday = current.weekday()
             week_end = current - timedelta(days=weekday) + timedelta(days=4)
             if offset == -1:
@@ -164,10 +161,10 @@ class Data:
             if dates.max() >= target:
                 filtered = dates[dates <= target]
                 if len(filtered) > 0:
-                    return filtered.max().strftime('%Y-%m-%d')
-            return dates.max().strftime('%Y-%m-%d')
+                    return filtered.max().strftime("%Y-%m-%d")
+            return dates.max().strftime("%Y-%m-%d")
 
-        elif self._period == '1M':
+        elif self._period == "1M":
             if offset == 0:
                 year = current.year
                 month = current.month
@@ -185,8 +182,8 @@ class Data:
             if dates.max() >= last_day:
                 filtered = dates[dates <= last_day]
                 if len(filtered) > 0:
-                    return filtered.max().strftime('%Y-%m-%d')
-            return dates.max().strftime('%Y-%m-%d')
+                    return filtered.max().strftime("%Y-%m-%d")
+            return dates.max().strftime("%Y-%m-%d")
 
         return self._date
 
@@ -195,13 +192,13 @@ class Data:
         if self._df is None or len(self._df) == 0:
             return (self._date, self._date)
 
-        if 'date' not in self._df.columns:
+        if "date" not in self._df.columns:
             return (self._date, self._date)
 
-        dates = pd.to_datetime(self._df['date'])
+        dates = pd.to_datetime(self._df["date"])
         current = pd.to_datetime(self._date)
 
-        if self._period in ('5m', '15m', '30m', '1h', '4h'):
+        if self._period in ("1h",):
             period_minutes = self._get_period_minutes()
             target = current + timedelta(minutes=period_minutes * offset)
             if offset < 0:
@@ -210,12 +207,9 @@ class Data:
             else:
                 start = current
                 end = current
-            return (
-                start.strftime('%Y-%m-%d'),
-                end.strftime('%Y-%m-%d')
-            )
+            return (start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
 
-        elif self._period == '1d':
+        elif self._period == "1d":
             target = current + timedelta(days=offset)
             if offset < 0:
                 start = current + timedelta(days=offset)
@@ -223,12 +217,9 @@ class Data:
             else:
                 start = current
                 end = current
-            return (
-                start.strftime('%Y-%m-%d'),
-                end.strftime('%Y-%m-%d')
-            )
+            return (start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
 
-        elif self._period == '1w':
+        elif self._period == "1w":
             weekday = current.weekday()
             week_end = current - timedelta(days=weekday) + timedelta(days=4)
             week_start = week_end - timedelta(days=6)
@@ -240,12 +231,9 @@ class Data:
                 week_end = week_end + timedelta(weeks=1)
                 week_start = week_end - timedelta(days=6)
 
-            return (
-                week_start.strftime('%Y-%m-%d'),
-                week_end.strftime('%Y-%m-%d')
-            )
+            return (week_start.strftime("%Y-%m-%d"), week_end.strftime("%Y-%m-%d"))
 
-        elif self._period == '1M':
+        elif self._period == "1M":
             year = current.year
             month = current.month + offset
 
@@ -259,10 +247,7 @@ class Data:
             month_start = datetime(year, month, 1)
             month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
 
-            return (
-                month_start.strftime('%Y-%m-%d'),
-                month_end.strftime('%Y-%m-%d')
-            )
+            return (month_start.strftime("%Y-%m-%d"), month_end.strftime("%Y-%m-%d"))
 
         return (self._date, self._date)
 
@@ -294,29 +279,29 @@ class Data:
         if self._df is None or len(self._df) == 0:
             return self._empty_data()
 
-        if 'date' not in self._df.columns:
+        if "date" not in self._df.columns:
             return {
-                'open': float(self._df['open'].iloc[-1]) if 'open' in self._df.columns else 0.0,
-                'close': float(self._df['close'].iloc[-1]) if 'close' in self._df.columns else 0.0,
-                'high': float(self._df['high'].iloc[-1]) if 'high' in self._df.columns else 0.0,
-                'low': float(self._df['low'].iloc[-1]) if 'low' in self._df.columns else 0.0,
-                'volume': int(self._df['volume'].iloc[-1]) if 'volume' in self._df.columns else 0,
-                'date': self._date,
+                "open": float(self._df["open"].iloc[-1]) if "open" in self._df.columns else 0.0,
+                "close": float(self._df["close"].iloc[-1]) if "close" in self._df.columns else 0.0,
+                "high": float(self._df["high"].iloc[-1]) if "high" in self._df.columns else 0.0,
+                "low": float(self._df["low"].iloc[-1]) if "low" in self._df.columns else 0.0,
+                "volume": int(self._df["volume"].iloc[-1]) if "volume" in self._df.columns else 0,
+                "date": self._date,
             }
 
         cycle_date = self.getCycleDate(offset)
-        filtered = self._df[self._df['date'] <= cycle_date]
+        filtered = self._df[self._df["date"] <= cycle_date]
 
         if len(filtered) == 0:
             return self._empty_data()
 
         return {
-            'open': float(filtered['open'].iloc[0]) if 'open' in filtered.columns else 0.0,
-            'close': float(filtered['close'].iloc[-1]) if 'close' in filtered.columns else 0.0,
-            'high': float(filtered['high'].max()) if 'high' in filtered.columns else 0.0,
-            'low': float(filtered['low'].min()) if 'low' in filtered.columns else 0.0,
-            'volume': int(filtered['volume'].sum()) if 'volume' in filtered.columns else 0,
-            'date': cycle_date,
+            "open": float(filtered["open"].iloc[0]) if "open" in filtered.columns else 0.0,
+            "close": float(filtered["close"].iloc[-1]) if "close" in filtered.columns else 0.0,
+            "high": float(filtered["high"].max()) if "high" in filtered.columns else 0.0,
+            "low": float(filtered["low"].min()) if "low" in filtered.columns else 0.0,
+            "volume": int(filtered["volume"].sum()) if "volume" in filtered.columns else 0,
+            "date": cycle_date,
         }
 
     def getHistory(self, count: int = 5) -> List[Dict[str, Any]]:
@@ -331,13 +316,13 @@ class Data:
         if self._df is None or len(self._df) == 0:
             return []
 
-        if 'date' not in self._df.columns:
+        if "date" not in self._df.columns:
             return []
 
         result = []
         for i in range(-count + 1, 1):
             data = self.getData(i)
-            if data['close'] > 0:
+            if data["close"] > 0:
                 result.append(data)
 
         return result
@@ -351,10 +336,10 @@ class Data:
         current = self.getCurrent()
         prev = self.getPrev()
 
-        if prev['close'] == 0:
+        if prev["close"] == 0:
             return 0.0
 
-        return ((current['close'] - prev['close']) / prev['close']) * 100
+        return ((current["close"] - prev["close"]) / prev["close"]) * 100
 
     def getChange(self) -> float:
         """获取涨跌额
@@ -364,7 +349,7 @@ class Data:
         """
         current = self.getCurrent()
         prev = self.getPrev()
-        return current['close'] - prev['close']
+        return current["close"] - prev["close"]
 
     def getVolumeChange(self) -> float:
         """获取成交量变化 (百分比)
@@ -375,10 +360,10 @@ class Data:
         current = self.getCurrent()
         prev = self.getPrev()
 
-        if prev['volume'] == 0:
+        if prev["volume"] == 0:
             return 0.0
 
-        return ((current['volume'] - prev['volume']) / prev['volume']) * 100
+        return ((current["volume"] - prev["volume"]) / prev["volume"]) * 100
 
     def getAvgVolume(self, periods: int = 20) -> float:
         """获取平均成交量
@@ -392,10 +377,10 @@ class Data:
         if self._df is None or len(self._df) == 0:
             return 0.0
 
-        if 'volume' not in self._df.columns:
+        if "volume" not in self._df.columns:
             return 0.0
 
-        return float(self._df['volume'].tail(periods).mean())
+        return float(self._df["volume"].tail(periods).mean())
 
     def getPriceRange(self) -> float:
         """获取价格振幅 (百分比)
@@ -404,10 +389,10 @@ class Data:
             float: 振幅百分比
         """
         current = self.getCurrent()
-        if current['open'] == 0:
+        if current["open"] == 0:
             return 0.0
 
-        return ((current['high'] - current['low']) / current['open']) * 100
+        return ((current["high"] - current["low"]) / current["open"]) * 100
 
     def getHighest(self, periods: int = 20) -> float:
         """获取最高价
@@ -421,10 +406,10 @@ class Data:
         if self._df is None or len(self._df) == 0:
             return 0.0
 
-        if 'high' not in self._df.columns:
+        if "high" not in self._df.columns:
             return 0.0
 
-        return float(self._df['high'].tail(periods).max())
+        return float(self._df["high"].tail(periods).max())
 
     def getLowest(self, periods: int = 20) -> float:
         """获取最低价
@@ -438,10 +423,10 @@ class Data:
         if self._df is None or len(self._df) == 0:
             return 0.0
 
-        if 'low' not in self._df.columns:
+        if "low" not in self._df.columns:
             return 0.0
 
-        return float(self._df['low'].tail(periods).min())
+        return float(self._df["low"].tail(periods).min())
 
     def getConsecutiveUpDays(self) -> int:
         """获取连续上涨天数
@@ -452,10 +437,10 @@ class Data:
         if self._df is None or len(self._df) < 2:
             return 0
 
-        if 'close' not in self._df.columns:
+        if "close" not in self._df.columns:
             return 0
 
-        closes = self._df['close'].values
+        closes = self._df["close"].values
         count = 0
 
         for i in range(len(closes) - 1, 0, -1):
@@ -475,10 +460,10 @@ class Data:
         if self._df is None or len(self._df) < 2:
             return 0
 
-        if 'close' not in self._df.columns:
+        if "close" not in self._df.columns:
             return 0
 
-        closes = self._df['close'].values
+        closes = self._df["close"].values
         count = 0
 
         for i in range(len(closes) - 1, 0, -1):
@@ -501,10 +486,10 @@ class Data:
         if self._df is None or len(self._df) < periods:
             return 0.0
 
-        if 'close' not in self._df.columns:
+        if "close" not in self._df.columns:
             return 0.0
 
-        return float(self._df['close'].tail(periods).mean())
+        return float(self._df["close"].tail(periods).mean())
 
     def getTurnover(self) -> float:
         """获取换手率 (估算)
@@ -518,15 +503,15 @@ class Data:
         if avg_volume == 0:
             return 0.0
 
-        return (current['volume'] / avg_volume) * 100
+        return (current["volume"] / avg_volume) * 100
 
     def _empty_data(self) -> Dict[str, Any]:
         """返回空数据"""
         return {
-            'open': 0.0,
-            'close': 0.0,
-            'high': 0.0,
-            'low': 0.0,
-            'volume': 0,
-            'date': self._date,
+            "open": 0.0,
+            "close": 0.0,
+            "high": 0.0,
+            "low": 0.0,
+            "volume": 0,
+            "date": self._date,
         }

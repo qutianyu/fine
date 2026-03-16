@@ -1,5 +1,7 @@
 from typing import List
+
 import numpy as np
+
 from ..base import Indicator
 from .ma import MA
 

@@ -11,14 +11,15 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, List, Union, Optional, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
+
 import numpy as np
 import pandas as pd
 
 from .providers import MarketData
-from .strategies.strategy import Strategy
 from .strategies.portfolio import Portfolio
-from .strategy import StockSignal, SignalType
+from .strategies.strategy import Strategy
+from .strategy import SignalType, StockSignal
 
 if TYPE_CHECKING:
     from .backtest import Position
@@ -183,10 +184,7 @@ class DynamicStockPool(StockPool):
                     continue
 
                 df = pd.DataFrame(
-                    [
-                        {"date": kl.date, "close": kl.close, "volume": kl.volume}
-                        for kl in klines
-                    ]
+                    [{"date": kl.date, "close": kl.close, "volume": kl.volume} for kl in klines]
                 )
 
                 result = self.strategy.scan([df])
@@ -326,9 +324,7 @@ class BacktestResult:
     equity_curve: List[Dict]  # [{"date": str, "value": float}]
     metrics: PerformanceMetrics
     metadata: Dict = field(default_factory=dict)
-    benchmark_curve: List[Dict] = field(
-        default_factory=list
-    )  # [{"date": str, "value": float}]
+    benchmark_curve: List[Dict] = field(default_factory=list)  # [{"date": str, "value": float}]
     benchmark_return: float = 0.0  # 基准收益率
     alpha: float = 0.0  # Alpha = 策略收益 - 基准收益
     beta: float = 0.0  # Beta
@@ -343,9 +339,7 @@ class BacktestResult:
 
         with open(filepath, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(
-                ["date", "symbol", "action", "price", "shares", "amount", "commission"]
-            )
+            writer.writerow(["date", "symbol", "action", "price", "shares", "amount", "commission"])
             for trade in self.trades:
                 writer.writerow(
                     [
@@ -415,7 +409,7 @@ class RollingWindowSignalGenerator(SignalGenerator):
         return signals
 
     def _generate_signal_from_strategy(self, ohlcv: dict, positions: Dict = None) -> SignalType:
-        """Generate signal based on strategy type"""
+        """根据策略类型生成信号"""
         from fine.indicators import TechnicalIndicators
 
         ti = TechnicalIndicators()
@@ -429,9 +423,7 @@ class RollingWindowSignalGenerator(SignalGenerator):
             slow = getattr(self.strategy, "slow", 26)
             signal = getattr(self.strategy, "signal", 9)
 
-            macd_result = ti.compute(
-                "MACD", close, fast=fast, slow=slow, signal=signal
-            )
+            macd_result = ti.compute("MACD", close, fast=fast, slow=slow, signal=signal)
 
             dif = macd_result.get("dif", [])
             dea = macd_result.get("dea", [])
@@ -722,9 +714,7 @@ class Backtest:
             return 0.0
         return ((last_value - first_value) / first_value) * 100
 
-    def _calculate_beta(
-        self, equity_curve: List[Dict], benchmark_curve: List[Dict]
-    ) -> float:
+    def _calculate_beta(self, equity_curve: List[Dict], benchmark_curve: List[Dict]) -> float:
         if not equity_curve or not benchmark_curve:
             return 0.0
         strategy_values = [e["value"] for e in equity_curve]
@@ -766,11 +756,11 @@ class Backtest:
 
         if self._supports_compute(strategy):
             portfolio = Portfolio(
-                cash=getattr(strategy, 'cash', 1000000),
-                commission_rate=getattr(strategy, 'commission_rate', 0.0003),
-                min_commission=getattr(strategy, 'min_commission', 5.0),
-                stamp_duty=getattr(strategy, 'stamp_duty', 0.001),
-                transfer_fee=getattr(strategy, 'transfer_fee', 0.00002),
+                cash=getattr(strategy, "cash", 1000000),
+                commission_rate=getattr(strategy, "commission_rate", 0.0003),
+                min_commission=getattr(strategy, "min_commission", 5.0),
+                stamp_duty=getattr(strategy, "stamp_duty", 0.001),
+                transfer_fee=getattr(strategy, "transfer_fee", 0.00002),
             )
             for date in trading_dates:
                 self._run_compute(date, all_data, strategy, market_data, portfolio)
@@ -779,7 +769,9 @@ class Backtest:
             self.portfolio = portfolio
         else:
             for date in trading_dates:
-                signals = self._get_signals_for_date(date, all_data, strategy, symbols, self.positions)
+                signals = self._get_signals_for_date(
+                    date, all_data, strategy, symbols, self.positions
+                )
                 self._process_sell_signals(date, signals)
                 self._process_buy_signals(date, signals, position_size, max_positions)
                 self._update_positions(date, all_data)
@@ -790,9 +782,9 @@ class Backtest:
     def _supports_compute(self, strategy) -> bool:
         if strategy is None:
             return False
-        if hasattr(strategy, 'compute_fn') and strategy.compute_fn is not None:
+        if hasattr(strategy, "compute_fn") and strategy.compute_fn is not None:
             return True
-        if hasattr(strategy, 'compute'):
+        if hasattr(strategy, "compute"):
             return True
         return False
 
@@ -804,15 +796,16 @@ class Backtest:
         market_data: MarketData = None,
         portfolio=None,
     ) -> None:
-        from .indicators import TechnicalIndicators
         from fine.strategies.data import Data
         from fine.strategies.indicators import Indicators
 
+        from .indicators import TechnicalIndicators
+
         ti = TechnicalIndicators()
         indicators = Indicators(symbol="", market_data=market_data)
-        period = getattr(strategy, 'period', '1d')
+        period = getattr(strategy, "period", "1d")
 
-        symbols = getattr(strategy, 'symbols', [])
+        symbols = getattr(strategy, "symbols", [])
         if not symbols:
             return
 
@@ -857,15 +850,17 @@ class Backtest:
                 current_price=pos.current_price,
             )
         for pt in portfolio.trades:
-            self.trades.append(Trade(
-                date=pt.date,
-                symbol=pt.symbol,
-                action=pt.action,
-                price=pt.price,
-                shares=pt.shares,
-                amount=pt.amount,
-                commission=pt.commission,
-            ))
+            self.trades.append(
+                Trade(
+                    date=pt.date,
+                    symbol=pt.symbol,
+                    action=pt.action,
+                    price=pt.price,
+                    shares=pt.shares,
+                    amount=pt.amount,
+                    commission=pt.commission,
+                )
+            )
 
     def _run_dynamic(
         self,
@@ -889,7 +884,7 @@ class Backtest:
         all_data: Dict[str, pd.DataFrame] = {}
 
         use_compute = self._supports_compute(strategy)
-        
+
         portfolio = None
         if not use_compute:
             portfolio = Portfolio(
@@ -900,11 +895,11 @@ class Backtest:
             )
         else:
             portfolio = Portfolio(
-                cash=getattr(strategy, 'cash', 1000000),
-                commission_rate=getattr(strategy, 'commission_rate', 0.0003),
-                min_commission=getattr(strategy, 'min_commission', 5.0),
-                stamp_duty=getattr(strategy, 'stamp_duty', 0.001),
-                transfer_fee=getattr(strategy, 'transfer_fee', 0.00002),
+                cash=getattr(strategy, "cash", 1000000),
+                commission_rate=getattr(strategy, "commission_rate", 0.0003),
+                min_commission=getattr(strategy, "min_commission", 5.0),
+                stamp_duty=getattr(strategy, "stamp_duty", 0.001),
+                transfer_fee=getattr(strategy, "transfer_fee", 0.00002),
             )
             self.portfolio = portfolio
 
@@ -922,16 +917,12 @@ class Backtest:
                 if not hasattr(self, "_current_data"):
                     symbols = stock_pool.get_symbols(date)
                     if symbols:
-                        all_data = self._load_data(
-                            symbols, market_data, start_date, date
-                        )
+                        all_data = self._load_data(symbols, market_data, start_date, date)
 
             if "all_data" not in dir() or not all_data:
                 continue
 
-            trading_dates_in_range = [
-                d for d in self._get_trading_dates(all_data) if d <= date
-            ]
+            trading_dates_in_range = [d for d in self._get_trading_dates(all_data) if d <= date]
             if date not in trading_dates_in_range:
                 continue
 
@@ -974,9 +965,7 @@ class Backtest:
         all_data = {}
 
         for symbol in symbols:
-            klines = market_data.get_kline(
-                symbol, start_date=start_date, end_date=end_date
-            )
+            klines = market_data.get_kline(symbol, start_date=start_date, end_date=end_date)
             if not klines:
                 continue
 
@@ -1020,10 +1009,10 @@ class Backtest:
     ) -> List[StockSignal]:
         signals = []
         positions = positions or {}
-        
+
         # Convert Position dict to shares dict for strategy
         positions_shares = {
-            symbol: pos.shares if hasattr(pos, 'shares') else float(pos) 
+            symbol: pos.shares if hasattr(pos, "shares") else float(pos)
             for symbol, pos in positions.items()
         }
 
@@ -1068,9 +1057,7 @@ class Backtest:
         position_size: float,
         max_positions: int,
     ):
-        buy_signals = [
-            s for s in signals if s.signal in [SignalType.BUY, SignalType.STRONG_BUY]
-        ]
+        buy_signals = [s for s in signals if s.signal in [SignalType.BUY, SignalType.STRONG_BUY]]
 
         available_slots = max_positions - len(self.positions)
 
@@ -1078,9 +1065,7 @@ class Backtest:
             if signal.symbol not in self.positions:
                 self._open_position(date, signal.symbol, signal.price, position_size)
 
-    def _open_position(
-        self, date: str, symbol: str, price: float, position_size: float
-    ):
+    def _open_position(self, date: str, symbol: str, price: float, position_size: float):
         price_with_slippage = price * (1 + self.slippage)
 
         amount = self.capital * position_size
@@ -1094,12 +1079,7 @@ class Backtest:
 
         if total_cost > self.capital:
             shares = (
-                int(
-                    self.capital
-                    / (price_with_slippage * (1 + self.commission_rate))
-                    / 100
-                )
-                * 100
+                int(self.capital / (price_with_slippage * (1 + self.commission_rate)) / 100) * 100
             )
 
         if shares <= 0:
@@ -1190,9 +1170,7 @@ class Backtest:
         )
 
     def _build_result(self) -> BacktestResult:
-        final_value = self.capital + sum(
-            p.market_value for p in self.positions.values()
-        )
+        final_value = self.capital + sum(p.market_value for p in self.positions.values())
 
         metrics = self._calculate_metrics()
 
@@ -1217,9 +1195,7 @@ class Backtest:
         values = [e["total_value"] for e in self.equity_curve]
 
         # 总收益率
-        total_return = (
-            ((values[-1] - values[0]) / values[0]) * 100 if values[0] > 0 else 0
-        )
+        total_return = ((values[-1] - values[0]) / values[0]) * 100 if values[0] > 0 else 0
 
         # 年化收益率
         days = len(self.equity_curve)
@@ -1262,9 +1238,7 @@ class Backtest:
             if i > 0:
                 # 找到对应的买入
                 symbol = trade.symbol
-                buys = [
-                    t for t in self.trades if t.symbol == symbol and t.action == "buy"
-                ]
+                buys = [t for t in self.trades if t.symbol == symbol and t.action == "buy"]
                 if buys:
                     entry_price = buys[-1].price
                     profit = (trade.price - entry_price) / entry_price * 100
@@ -1274,17 +1248,13 @@ class Backtest:
                         total_wins += profit
                         consecutive_wins += 1
                         consecutive_losses = 0
-                        max_consecutive_wins = max(
-                            max_consecutive_wins, consecutive_wins
-                        )
+                        max_consecutive_wins = max(max_consecutive_wins, consecutive_wins)
                     else:
                         losing_trades += 1
                         total_losses += abs(profit)
                         consecutive_losses += 1
                         consecutive_wins = 0
-                        max_consecutive_losses = max(
-                            max_consecutive_losses, consecutive_losses
-                        )
+                        max_consecutive_losses = max(max_consecutive_losses, consecutive_losses)
 
         total_trades = winning_trades + losing_trades
         win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
@@ -1393,9 +1363,7 @@ def export_to_csv(
         writer = csv.writer(f)
         writer.writerow(["日期", "策略净值", "基准净值", "策略收益率%", "基准收益率%"])
         benchmark_values = (
-            [e["value"] for e in result.benchmark_curve]
-            if result.benchmark_curve
-            else []
+            [e["value"] for e in result.benchmark_curve] if result.benchmark_curve else []
         )
         initial = result.initial_capital
         benchmark_initial = benchmark_values[0] if benchmark_values else initial
@@ -1407,9 +1375,7 @@ def export_to_csv(
             bench_pct = (
                 ((bench_val / benchmark_initial) - 1) * 100
                 if benchmark_initial > 0
-                else 0
-                if benchmark_values
-                else ""
+                else 0 if benchmark_values else ""
             )
             if isinstance(bench_pct, float):
                 bench_pct = f"{bench_pct:.2f}"
@@ -1440,9 +1406,10 @@ def plot_backtest_result(
         title: 图表标题
     """
     try:
-        import matplotlib.pyplot as plt
-        import matplotlib.dates as mdates
         from datetime import datetime
+
+        import matplotlib.dates as mdates
+        import matplotlib.pyplot as plt
     except ImportError:
         print("Error: matplotlib not installed. Run: pip install matplotlib")
         return
@@ -1455,9 +1422,7 @@ def plot_backtest_result(
 
     axes[0].plot(dates, strategy_values, label="策略", linewidth=1.5, color="#2E86AB")
     if result.benchmark_curve:
-        bench_dates = [
-            datetime.strptime(e["date"], "%Y-%m-%d") for e in result.benchmark_curve
-        ]
+        bench_dates = [datetime.strptime(e["date"], "%Y-%m-%d") for e in result.benchmark_curve]
         bench_values = [e["value"] for e in result.benchmark_curve]
         axes[0].plot(
             bench_dates,

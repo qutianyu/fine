@@ -4,7 +4,6 @@ import sys
 
 from fine.strategies.strategy import Strategy
 
-
 __all__ = [
     "Strategy",
     "get_strategy",
@@ -60,11 +59,7 @@ def load_strategy_from_file(
     strategy_class = None
     for attr_name in dir(module):
         attr = getattr(module, attr_name)
-        if (
-            isinstance(attr, type)
-            and issubclass(attr, Strategy)
-            and attr is not Strategy
-        ):
+        if isinstance(attr, type) and issubclass(attr, Strategy) and attr is not Strategy:
             strategy_class = attr
             break
 
@@ -99,7 +94,4 @@ def get_strategy(
     if source.endswith(".py"):
         return load_strategy_from_file(source, **kwargs)
 
-    raise ValueError(
-        f"Strategy file not found: {source}. "
-        "Please provide a valid file path."
-    )
+    raise ValueError(f"Strategy file not found: {source}. " "Please provide a valid file path.")

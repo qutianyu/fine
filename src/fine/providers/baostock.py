@@ -1,7 +1,9 @@
-from typing import Optional, Dict, List, Union
 from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Union
+
 import baostock as bs
-from .base import DataProvider, Quote, KLine, MinuteData, StockInfo
+
+from .base import DataProvider, KLine, MinuteData, Quote, StockInfo
 
 
 def _safe_float(value, default=0.0) -> float:

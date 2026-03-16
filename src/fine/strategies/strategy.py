@@ -1,14 +1,15 @@
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from typing import List
+
 from fine.period import Period
 from fine.strategies.data import Data
-from fine.strategies.portfolio import Portfolio
 from fine.strategies.indicators import Indicators
+from fine.strategies.portfolio import Portfolio
 
 
 class Strategy(ABC):
-
     """策略名称"""
+
     name: str = "base"
     """佣金费率 (默认万三 0.0003)"""
     commission_rate: float = 0.0003

@@ -113,11 +113,13 @@ class Portfolio:
             print(f"持仓: {pos.shares}股, 盈亏: {pos.profit}%")
     """
 
-    def __init__(self, cash: float,
-                commission_rate: float = 0.0003,
-                min_commission: float = 5.0,
-                stamp_duty: float = 0.001,
-                transfer_fee: float = 0.00002
+    def __init__(
+        self,
+        cash: float,
+        commission_rate: float = 0.0003,
+        min_commission: float = 5.0,
+        stamp_duty: float = 0.001,
+        transfer_fee: float = 0.00002,
     ):
         """初始化组合
 
@@ -254,14 +256,16 @@ class Portfolio:
                 current_price=price,
             )
 
-        self._trades.append({
-            "action": "buy",
-            "symbol": symbol,
-            "price": price,
-            "shares": actual_shares,
-            "amount": gross_amount,
-            "fee": total_fee,
-        })
+        self._trades.append(
+            {
+                "action": "buy",
+                "symbol": symbol,
+                "price": price,
+                "shares": actual_shares,
+                "amount": gross_amount,
+                "fee": total_fee,
+            }
+        )
 
         return TradeResult(
             success=True,
@@ -319,14 +323,16 @@ class Portfolio:
                 current_price=price,
             )
 
-        self._trades.append({
-            "action": "sell",
-            "symbol": symbol,
-            "price": price,
-            "shares": actual_shares,
-            "amount": gross_amount,
-            "fee": total_fee,
-        })
+        self._trades.append(
+            {
+                "action": "sell",
+                "symbol": symbol,
+                "price": price,
+                "shares": actual_shares,
+                "amount": gross_amount,
+                "fee": total_fee,
+            }
+        )
 
         return TradeResult(
             success=True,

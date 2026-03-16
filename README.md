@@ -41,6 +41,9 @@ fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --provider akshare
 
 # 输出到指定目录
 fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --result /tmp
+
+# 强制从数据源获取，忽略缓存
+fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --force
 ```
 
 ### 3. calculate - 计算技术指标
@@ -218,16 +221,20 @@ mypy fine/
 
 数据缓存用于加速重复的数据获取，缓存目录位于 `~/.config/fine/store/`。
 
-- 缓存文件格式：`{symbol}_{period}_{start}_{end}.csv`
+- 缓存文件格式：`{symbol}_{period}.csv`（如 `sh600519_1d.csv`）
+- 基本面数据：`stock_info.csv`
 - 缓存永不过期
 - `fine data` 和 `fine backtest` 命令自动使用缓存
 
 ```bash
 # 首次运行从 provider 获取数据并缓存
-fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d --provider baostock
+fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d
 
 # 再次运行直接从缓存读取
-fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d --provider baostock
+fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d
+
+# 强制从数据源获取，忽略缓存
+fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --force
 ```
 
 ## License

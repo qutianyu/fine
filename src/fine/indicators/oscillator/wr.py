@@ -1,5 +1,7 @@
 from typing import Dict
+
 import numpy as np
+
 from ..base import Indicator
 
 
@@ -33,9 +35,7 @@ class WR(Indicator):
         return {"wr": wr, "wr_buy": wr_buy, "signal": self._get_signal(wr)}
 
     @staticmethod
-    def _get_signal(
-        wr: np.ndarray, overbought: float = -20, oversold: float = -80
-    ) -> np.ndarray:
+    def _get_signal(wr: np.ndarray, overbought: float = -20, oversold: float = -80) -> np.ndarray:
         signal = np.full(len(wr), "hold")
         for i in range(1, len(wr)):
             if wr[i] < oversold and wr[i - 1] >= oversold:

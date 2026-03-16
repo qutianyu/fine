@@ -1,5 +1,7 @@
 from typing import Dict
+
 import numpy as np
+
 from ..base import Indicator
 
 
@@ -41,9 +43,7 @@ class MFI(Indicator):
         return {"mfi": mfi, "signal": self._get_signal(mfi)}
 
     @staticmethod
-    def _get_signal(
-        mfi: np.ndarray, overbought: float = 80, oversold: float = 20
-    ) -> np.ndarray:
+    def _get_signal(mfi: np.ndarray, overbought: float = 80, oversold: float = 20) -> np.ndarray:
         signal = np.full(len(mfi), "hold")
         for i in range(1, len(mfi)):
             if mfi[i] < oversold and mfi[i - 1] >= oversold:
