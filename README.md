@@ -30,23 +30,33 @@ fine backtest --strategy test/rsi_strategy.py --result /tmp
 fine backtest --strategy test/rsi_strategy.py --symbols sh600519 --start 2024-01-01 --end 2024-12-31 --result /tmp
 ```
 
-### 2. data - 获取行情数据
+### 2. pd - 获取价格数据
 
 ```bash
 # 获取股票数据
-fine data --symbols sh600519,sh600000 --date 2024-01-01,2024-12-31 --period 1d
+fine pd --symbols sh600519,sh600000 --start-date 2024-01-01 00:00 --end-date 2024-12-31 00:00 --period 1d
 
 # 指定数据源
-fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --provider akshare
+fine pd --symbols sh600519 --start-date 2024-01-01 00:00 --end-date 2024-12-31 00:00 --provider akshare
 
 # 输出到指定目录
-fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --result /tmp
+fine pd --symbols sh600519 --start-date 2024-01-01 00:00 --end-date 2024-12-31 00:00 --result /tmp
 
 # 强制从数据源获取，忽略缓存
-fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --force
+fine pd --symbols sh600519 --start-date 2024-01-01 00:00 --end-date 2024-12-31 00:00 --force
 ```
 
-### 3. calculate - 计算技术指标
+### 3. cd - 获取公司数据
+
+```bash
+# 获取公司基本信息（市值、PE等）
+fine cd --symbols sh600519,sh600000
+
+# 输出到指定目录
+fine cd --symbols sh600519 --result /tmp
+```
+
+### 4. calculate - 计算技术指标
 
 ```bash
 # 计算技术指标
@@ -55,6 +65,30 @@ fine calculate --indicator rsi,macd --data /tmp/data.csv
 # 输出到指定目录
 fine calculate --indicator rsi,macd,ma --data /tmp/data.csv --result /tmp
 ```
+
+### 5. news - 获取新闻数据
+
+```bash
+# 获取个股新闻
+fine news --provider efinance --symbols sh600519
+
+# 获取央视新闻
+fine news --provider cctv
+
+# 获取财经日历
+fine news --provider economic
+
+# 指定日期范围
+fine news --provider efinance --symbols sh600519 --start-date "2026-03-01 00:00" --end-date "2026-03-31 23:59"
+
+# 输出到指定目录 (默认 /tmp)
+fine news --provider efinance --symbols sh600519 --result /tmp
+```
+
+**输出文件格式:**
+- 单个股票: `news-{symbol}-{start-date}-{end-date}.md`
+- 央视新闻: `news-cctv-{start-date}-{end-date}.md`
+- 财经日历: `news-economic-{start-date}-{end-date}.md`
 
 ## 策略文件示例
 
@@ -224,17 +258,17 @@ mypy fine/
 - 缓存文件格式：`{symbol}_{period}.csv`（如 `sh600519_1d.csv`）
 - 基本面数据：`stock_info.csv`
 - 缓存永不过期
-- `fine data` 和 `fine backtest` 命令自动使用缓存
+- `fine pd` 和 `fine backtest` 命令自动使用缓存
 
 ```bash
 # 首次运行从 provider 获取数据并缓存
-fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d
+fine pd --symbols sh600519 --start-date 2024-01-01 00:00 --end-date 2024-12-31 00:00 --period 1d
 
 # 再次运行直接从缓存读取
-fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d
+fine pd --symbols sh600519 --start-date 2024-01-01 00:00 --end-date 2024-12-31 00:00 --period 1d
 
 # 强制从数据源获取，忽略缓存
-fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --force
+fine pd --symbols sh600519 --start-date 2024-01-01 00:00 --end-date 2024-12-31 00:00 --force
 ```
 
 ## License

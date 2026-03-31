@@ -15,6 +15,8 @@ src/fine/
 ├── backtest.py                      # Backtest engine
 ├── period.py                        # Period enum constants
 ├── providers/                       # Data providers
+│   ├── news_provider.py             # News data providers
+│   └── ...
 ├── store/                          # Data storage
 └── cli/                           # Command line interface
 ```
@@ -93,6 +95,50 @@ from fine.period import Period, PERIOD_1H, PERIOD_1D, PERIOD_1W, PERIOD_1M
 ```
 
 ## CLI Usage
+
+### Price Data Command (pd)
+
+```bash
+# Fetch stock price data (kline)
+fine pd --symbols sh600519,sh600000 --start-date 2024-01-01 00:00 --end-date 2024-12-31 00:00 --period 1d
+
+# With output directory
+fine pd --symbols sh600519 --start-date 2024-01-01 00:00 --end-date 2024-12-31 00:00 --result /tmp
+
+# Force refresh from provider
+fine pd --symbols sh600519 --start-date 2024-01-01 00:00 --end-date 2024-12-31 00:00 --force
+```
+
+### Company Data Command (cd)
+
+```bash
+# Fetch company info (market cap, PE, etc.)
+fine cd --symbols sh600519,sh600000
+
+# With output directory
+fine cd --symbols sh600519 --result /tmp
+```
+
+### News Command
+
+```bash
+# Fetch stock news
+fine news --provider efinance --symbols sh600519 --result /tmp
+
+# Fetch CCTV news
+fine news --provider cctv --result /tmp
+
+# Fetch economic calendar
+fine news --provider economic --result /tmp
+
+# With date range
+fine news --provider efinance --symbols sh600519 --start-date "2026-03-01 00:00" --end-date "2026-03-31 23:59" --result /tmp
+```
+
+**Output file format:**
+- Stock news: `news-{symbol}-{start-date}-{end-date}.md`
+- CCTV news: `news-cctv-{start-date}-{end-date}.md`
+- Economic calendar: `news-economic-{start-date}-{end-date}.md`
 
 ### Backtest Command
 
@@ -397,15 +443,15 @@ klines = market_data.get_kline("sh600519", period="1d",
 
 ### CLI Cache Usage
 
-Both `fine data` and `fine backtest` commands use cache automatically:
+Both `fine pd` and `fine backtest` commands use cache automatically:
 
 ```bash
 # First run - fetches from provider
-fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d
+fine pd --symbols sh600519 --start-date 2024-01-01 00:00 --end-date 2024-12-31 00:00 --period 1d
 
 # Second run - uses cache
-fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d
+fine pd --symbols sh600519 --start-date 2024-01-01 00:00 --end-date 2024-12-31 00:00 --period 1d
 
 # Force refresh - fetch from provider and update cache
-fine data --symbols sh600519 --date 2024-01-01,2024-12-31 --period 1d --force
+fine pd --symbols sh600519 --start-date 2024-01-01 00:00 --end-date 2024-12-31 00:00 --period 1d --force
 ```

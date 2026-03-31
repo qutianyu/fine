@@ -4,8 +4,12 @@ Fine CLI - Command Line Interface for Fine
 
 Usage:
     fine backtest --cash 1000000 --data /path/to/data.csv --strategy /path/to/strategy.py
-    fine data --symbols sh600519,sh600001 --date 2024-01-01,2025-01-01 --period 1d --result /tmp
+    fine pd --symbols sh600519,sh600001 --start-date 2024-01-01 00:00 --end-date 2025-01-01 00:00 --period 1d --result /tmp
+    fine cd --symbols sh600519,sh600000
     fine calculate --indicator kdj,macd --data /tmp/20260314191231.csv --result /tmp
+    fine news --provider efinance --symbols sh600519 --result /tmp
+    fine news --provider cctv --result /tmp
+    fine news --provider economic --result /tmp
 """
 
 import argparse
@@ -56,13 +60,8 @@ INDICATOR_COLUMNS = {
 def _cmd_data(args) -> int:
     """获取股票数据"""
     symbols = args.symbols.replace(",", " ").split()
-    date_range = args.date.split(",")
-    if len(date_range) != 2:
-        print("Error: --date must be in format: start,end", file=sys.stderr)
-        return 1
-
-    start_date = date_range[0].strip()
-    end_date = date_range[1].strip()
+    start_date = args.start_date
+    end_date = args.end_date
     period = args.period or "1d"
     provider_name = args.provider or "akshare"
     force = args.force
@@ -75,7 +74,11 @@ def _cmd_data(args) -> int:
 
         for symbol in symbols:
             klines = market_data.get_kline(
-                symbol, period=period, start_date=start_date, end_date=end_date, force=force
+                symbol,
+                period=period,
+                start_date=start_date,
+                end_date=end_date,
+                force=force,
             )
             for kl in klines:
                 all_klines.append(
@@ -103,6 +106,193 @@ def _cmd_data(args) -> int:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             for row in all_klines:
+                writer.writerow(row)
+
+        print(str(result_file))
+        return 0
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return 1
+
+
+def _cmd_news(args) -> int:
+    """获取新闻数据"""
+    news_provider = args.provider or "efinance"
+    symbols = args.symbols.replace(",", " ").split() if args.symbols else []
+    start_date = args.start_date or ""
+    end_date = args.end_date or ""
+    result_dir = Path(os.path.expanduser(args.result)) if args.result else Path(".")
+
+    try:
+        market_data = MarketData(provider="akshare")
+
+        result_dir.mkdir(parents=True, exist_ok=True)
+
+        def format_date_for_filename(dt_str: str) -> str:
+            if not dt_str:
+                return "all"
+            return dt_str.replace(":", "").replace(" ", "").replace("-", "")
+
+        def write_news_to_markdown(news_list: List, symbol: str) -> Path:
+            start_fmt = format_date_for_filename(start_date)
+            end_fmt = format_date_for_filename(end_date)
+
+            if symbol == "cctv" or symbol == "economic":
+                filename = f"news-{symbol}-{start_fmt}-{end_fmt}.md"
+            else:
+                filename = f"news-{symbol}-{start_fmt}-{end_fmt}.md"
+
+            result_file = result_dir / filename
+
+            with open(result_file, "w", encoding="utf-8") as f:
+                if symbol == "cctv":
+                    f.write("# 央视新闻\n\n")
+                elif symbol == "economic":
+                    f.write("# 财经日历\n\n")
+                else:
+                    f.write(f"# 新闻 - {symbol}\n\n")
+
+                for news in news_list:
+                    f.write(f"## {news.publish_date}\n\n")
+                    f.write(f"- **标题**: {news.title}\n")
+                    f.write(f"- **来源**: {news.source}\n")
+                    if news.url:
+                        f.write(f"- **链接**: {news.url}\n")
+                    if news.content:
+                        f.write(f"- **内容**: {news.content}\n")
+                    f.write("\n---\n\n")
+
+            return result_file
+
+        if news_provider == "efinance":
+            if not symbols:
+                print(
+                    "Error: --symbols is required for efinance news provider",
+                    file=sys.stderr,
+                )
+                return 1
+            result_files = []
+            for symbol in symbols:
+                news_list = market_data.get_news(symbol=symbol, news_type="efinance")
+                if news_list:
+                    result_file = write_news_to_markdown(news_list, symbol)
+                    result_files.append(str(result_file))
+            if result_files:
+                print("\n".join(result_files))
+                return 0
+            else:
+                print("No news fetched", file=sys.stderr)
+                return 1
+
+        elif news_provider == "cctv":
+            news_list = market_data.get_news(news_type="cctv")
+            if news_list:
+                result_file = write_news_to_markdown(news_list, "cctv")
+                print(str(result_file))
+                return 0
+            else:
+                print("No news fetched", file=sys.stderr)
+                return 1
+
+        elif news_provider == "economic":
+            news_list = market_data.get_news(news_type="economic")
+            if news_list:
+                result_file = write_news_to_markdown(news_list, "economic")
+                print(str(result_file))
+                return 0
+            else:
+                print("No news fetched", file=sys.stderr)
+                return 1
+
+        else:
+            print(f"Error: Unknown news provider: {news_provider}", file=sys.stderr)
+            return 1
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return 1
+
+
+def _cmd_cd(args) -> int:
+    """获取公司数据"""
+    symbols = args.symbols.replace(",", " ").split()
+    provider_name = args.provider or "akshare"
+    result_dir = Path(os.path.expanduser(args.result)) if args.result else Path(".")
+
+    try:
+        market_data = MarketData(provider=provider_name)
+
+        all_data: List[Dict[str, Any]] = []
+
+        for symbol in symbols:
+            stock_info = market_data.get_stock_info(symbol)
+            if stock_info:
+                all_data.append(
+                    {
+                        "symbol": stock_info.symbol,
+                        "name": stock_info.name,
+                        "price": stock_info.price,
+                        "change_pct": stock_info.change_pct,
+                        "pe": stock_info.pe,
+                        "pe_ttm": stock_info.pe_ttm,
+                        "pb": stock_info.pb,
+                        "market_cap": stock_info.market_cap,
+                        "float_market_cap": stock_info.float_market_cap,
+                        "total_shares": stock_info.total_shares,
+                        "float_shares": stock_info.float_shares,
+                        "turnover_rate": stock_info.turnover_rate,
+                        "volume_ratio": stock_info.volume_ratio,
+                        "high_52w": stock_info.high_52w,
+                        "low_52w": stock_info.low_52w,
+                        "eps": stock_info.eps,
+                        "bps": stock_info.bps,
+                        "roe": stock_info.roe,
+                        "gross_margin": stock_info.gross_margin,
+                        "net_margin": stock_info.net_margin,
+                        "revenue": stock_info.revenue,
+                        "profit": stock_info.profit,
+                    }
+                )
+
+        if not all_data:
+            print("No data fetched", file=sys.stderr)
+            return 1
+
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        result_file = result_dir / f"company_{timestamp}.csv"
+        result_dir.mkdir(parents=True, exist_ok=True)
+
+        fieldnames = [
+            "symbol",
+            "name",
+            "price",
+            "change_pct",
+            "pe",
+            "pe_ttm",
+            "pb",
+            "market_cap",
+            "float_market_cap",
+            "total_shares",
+            "float_shares",
+            "turnover_rate",
+            "volume_ratio",
+            "high_52w",
+            "low_52w",
+            "eps",
+            "bps",
+            "roe",
+            "gross_margin",
+            "net_margin",
+            "revenue",
+            "profit",
+        ]
+        with open(result_file, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in all_data:
                 writer.writerow(row)
 
         print(str(result_file))
@@ -300,65 +490,117 @@ def _cmd_backtest(args) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        prog="fine", description="Fine - Python Market Data and Trading Backtesting Library"
+        prog="fine",
+        description="Fine - Python 市场价格数据与交易回测库",
     )
 
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 
-    subparsers = parser.add_subparsers(dest="command", help="Commands")
+    subparsers = parser.add_subparsers(dest="command", help="命令列表")
 
-    data_parser = subparsers.add_parser("data", help="Fetch stock data")
+    data_parser = subparsers.add_parser("pd", help="获取价格数据 (K线)")
     data_parser.add_argument(
-        "--symbols", type=str, required=True, help="Stock symbols (comma or space separated)"
+        "--symbols",
+        type=str,
+        required=True,
+        help="股票代码 (逗号或空格分隔)",
     )
-    data_parser.add_argument("--date", type=str, required=True, help="Date range (start,end)")
+    data_parser.add_argument(
+        "--start-date", type=str, required=True, help="开始日期 (yyyy-MM-dd HH:mm)"
+    )
+    data_parser.add_argument(
+        "--end-date", type=str, required=True, help="结束日期 (yyyy-MM-dd HH:mm)"
+    )
     data_parser.add_argument(
         "--period",
         type=str,
         default="1d",
         choices=["1h", "1d", "1w", "1M"],
-        help="Period (default: 1d)",
+        help="周期 (默认: 1d)",
     )
     data_parser.add_argument(
         "--provider",
         type=str,
         default="akshare",
         choices=["akshare", "baostock", "yfinance", "baidu"],
-        help="Data provider (default: akshare)",
+        help="数据源 (默认: akshare)",
     )
     data_parser.add_argument(
         "--force",
         action="store_true",
-        help="Force fetch from data source, ignore cache",
+        help="强制从数据源获取，忽略缓存",
     )
-    data_parser.add_argument("--result", type=str, help="Output directory")
+    data_parser.add_argument("--result", type=str, help="输出目录")
 
-    backtest_parser = subparsers.add_parser("backtest", help="Run backtest")
-    backtest_parser.add_argument("--cash", type=float, help="Initial cash")
-    backtest_parser.add_argument("--data", type=str, required=True, help="Data CSV file")
-    backtest_parser.add_argument("--strategy", type=str, required=True, help="Strategy file path")
-    backtest_parser.add_argument("--period", type=str, help="Period")
-    backtest_parser.add_argument("--commission", type=float, help="Commission rate")
-    backtest_parser.add_argument("--min-commission", type=float, help="Minimum commission")
-    backtest_parser.add_argument("--stamp-duty", type=float, help="Stamp duty rate")
-    backtest_parser.add_argument("--transfer-fee", type=float, help="Transfer fee rate")
-    backtest_parser.add_argument("--result", type=str, help="Output directory")
+    backtest_parser = subparsers.add_parser("backtest", help="运行回测")
+    backtest_parser.add_argument("--cash", type=float, help="初始资金")
+    backtest_parser.add_argument("--data", type=str, required=True, help="数据CSV文件")
+    backtest_parser.add_argument("--strategy", type=str, required=True, help="策略文件路径")
+    backtest_parser.add_argument("--period", type=str, help="周期")
+    backtest_parser.add_argument("--commission", type=float, help="佣金费率")
+    backtest_parser.add_argument("--min-commission", type=float, help="最低佣金")
+    backtest_parser.add_argument("--stamp-duty", type=float, help="印花税率")
+    backtest_parser.add_argument("--transfer-fee", type=float, help="过户费率")
+    backtest_parser.add_argument("--result", type=str, help="输出目录")
 
-    calc_parser = subparsers.add_parser("calculate", help="Calculate technical indicators")
-    calc_parser.add_argument(
-        "--indicator", type=str, required=True, help="Indicators (comma separated)"
+    calc_parser = subparsers.add_parser("calculate", help="计算技术指标")
+    calc_parser.add_argument("--indicator", type=str, required=True, help="技术指标 (逗号分隔)")
+    calc_parser.add_argument("--data", type=str, required=True, help="输入CSV文件")
+    calc_parser.add_argument("--result", type=str, help="输出目录")
+
+    news_parser = subparsers.add_parser("news", help="获取新闻数据")
+    news_parser.add_argument(
+        "--symbols",
+        type=str,
+        help="股票代码 (逗号或空格分隔)",
     )
-    calc_parser.add_argument("--data", type=str, required=True, help="Input CSV file")
-    calc_parser.add_argument("--result", type=str, help="Output directory")
+    news_parser.add_argument(
+        "--provider",
+        type=str,
+        default="efinance",
+        choices=["efinance", "cctv", "economic"],
+        help="新闻源 (efinance/cctv/economic，默认: efinance)",
+    )
+    news_parser.add_argument(
+        "--start-date",
+        type=str,
+        help="开始日期 (yyyy-MM-dd HH:mm)",
+    )
+    news_parser.add_argument(
+        "--end-date",
+        type=str,
+        help="结束日期 (yyyy-MM-dd HH:mm)",
+    )
+    news_parser.add_argument("--result", type=str, help="输出目录 (默认: 当前目录)")
+
+    cd_parser = subparsers.add_parser("cd", help="获取公司数据 (市值、PE等)")
+    cd_parser.add_argument(
+        "--symbols",
+        type=str,
+        required=True,
+        help="股票代码 (逗号或空格分隔)",
+    )
+    cd_parser.add_argument(
+        "--provider",
+        type=str,
+        default="akshare",
+        choices=["akshare", "baostock", "yfinance", "baidu"],
+        help="数据源 (默认: akshare)",
+    )
+    cd_parser.add_argument("--result", type=str, help="输出目录")
 
     args = parser.parse_args()
 
-    if args.command == "data":
+    if args.command == "pd":
         return _cmd_data(args)
     elif args.command == "backtest":
         return _cmd_backtest(args)
     elif args.command == "calculate":
         return _cmd_calculate(args)
+    elif args.command == "news":
+        return _cmd_news(args)
+    elif args.command == "cd":
+        return _cmd_cd(args)
     else:
         parser.print_help()
         return 1

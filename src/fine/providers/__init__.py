@@ -20,6 +20,14 @@ from .base import (
     StockInfo,
     TickData,
 )
+
+# News provider
+from .news_provider import (
+    News,
+    NewsProvider,
+    get_news_provider,
+    list_news_providers,
+)
 from .efinance import EFinanceProvider
 from .sina import SinaProvider
 
@@ -225,6 +233,19 @@ class MarketData:
 
         return stock_info
 
+    def get_news(self, symbol: Optional[str] = None, news_type: str = "efinance") -> List[News]:
+        """获取新闻数据
+
+        Args:
+            symbol: 股票代码，当 news_type="efinance" 时使用
+            news_type: 新闻类型 ("efinance"-个股新闻, "cctv"-央视新闻, "economic"-财经日历)
+
+        Returns:
+            List[News]: 新闻数据列表
+        """
+        news_provider = get_news_provider(self.provider_name)
+        return news_provider.get_news(symbol, news_type)
+
     @classmethod
     def list_providers(cls) -> List[str]:
         return ProviderRegistry.list_providers()
@@ -243,6 +264,11 @@ __all__ = [
     "MinuteData",
     "TickData",
     "StockInfo",
+    # News
+    "News",
+    "NewsProvider",
+    "get_news_provider",
+    "list_news_providers",
     # Providers
     "TencentProvider",
     "SinaProvider",

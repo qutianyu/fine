@@ -1,7 +1,14 @@
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Union
 
-from .base import DataProvider, KLine, MinuteData, Quote, StockInfo, to_provider_period
+from .base import (
+    DataProvider,
+    KLine,
+    MinuteData,
+    Quote,
+    StockInfo,
+    to_provider_period,
+)
 
 
 def _safe_float(value, default=0.0) -> float:
@@ -150,10 +157,16 @@ class AkshareProvider(DataProvider):
         if start_date is None:
             start_date = (datetime.now() - timedelta(days=30)).strftime("%Y%m%d")
 
-        if start_date and "-" in start_date:
-            start_date = start_date.replace("-", "")
-        if end_date and "-" in end_date:
-            end_date = end_date.replace("-", "")
+        if start_date:
+            if " " in start_date:
+                start_date = start_date.split(" ")[0]
+            if "-" in start_date:
+                start_date = start_date.replace("-", "")
+        if end_date:
+            if " " in end_date:
+                end_date = end_date.split(" ")[0]
+            if "-" in end_date:
+                end_date = end_date.replace("-", "")
 
         if symbol.startswith("hk"):
             return self._get_hk_kline(symbol, period, start_date, end_date)
