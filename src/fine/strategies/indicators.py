@@ -1,7 +1,6 @@
 from typing import Any, Dict
 
 from fine.indicators import TechnicalIndicators
-from fine.providers import MarketData
 from fine.strategies.data import Data
 
 
@@ -19,15 +18,13 @@ class Indicators:
             macd_result = indicators.compute('MACD', data)
     """
 
-    def __init__(self, symbol: str, market_data: MarketData):
+    def __init__(self, symbol: str = ""):
         """初始化指标计算器
 
         Args:
             symbol: 股票代码
-            market_data: 市场数据实例
         """
         self._symbol = symbol
-        self._market_data = market_data
         self._ti = TechnicalIndicators()
         self._cache: Dict[str, Any] = {}
 

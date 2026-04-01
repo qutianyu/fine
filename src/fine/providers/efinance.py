@@ -12,7 +12,10 @@ Usage:
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Union
 
+import pandas as pd
+
 from .base import DataProvider, KLine, MinuteData, Quote, StockInfo
+from .utils import safe_float as _safe_float, safe_int as _safe_int
 
 # Lazy import
 ef = None
@@ -26,26 +29,6 @@ def _get_efinance():
         except ImportError:
             raise ImportError("efinance not installed. Install with: pip install efinance")
     return ef
-
-
-def _safe_float(value, default=0.0) -> float:
-    """安全转换为浮点数"""
-    if value is None or value == "" or str(value) == "nan" or value == "-":
-        return default
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return default
-
-
-def _safe_int(value, default=0) -> int:
-    """安全转换为整数"""
-    if value is None or value == "" or str(value) == "nan" or value == "-":
-        return default
-    try:
-        return int(float(value))
-    except (ValueError, TypeError):
-        return default
 
 
 class EFinanceProvider(DataProvider):
@@ -312,6 +295,10 @@ class EFinanceProvider(DataProvider):
 
         stock_code = self._format_symbol(symbol)
 
+        # 周线需要对齐到周一，先获取日线再聚合
+        if period == "weekly":
+            return self._get_weekly_kline(symbol, start_date, end_date)
+
         # 周期映射 (efinance: 1=日, 5=周, 6=月, 5/15/30/60=分钟)
         klt_map = {
             "daily": 1,
@@ -358,6 +345,82 @@ class EFinanceProvider(DataProvider):
 
         # 按日期排序
         result.sort(key=lambda x: x.date)
+        return result
+
+    def _get_weekly_kline(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+    ) -> List[KLine]:
+        """获取周线数据（周一开始）"""
+        stock_code = self._format_symbol(symbol)
+
+        try:
+            # 扩展日期范围
+            start_dt = datetime.strptime(start_date[:8], "%Y%m%d") if start_date else datetime.now() - timedelta(days=60)
+            end_dt = datetime.strptime(end_date[:8], "%Y%m%d") if end_date else datetime.now()
+            actual_start = (start_dt - timedelta(days=14)).strftime("%Y%m%d")
+            actual_end = end_dt.strftime("%Y%m%d")
+
+            df = _get_efinance().stock.get_quote_history(
+                stock_code, beg=actual_start, end=actual_end, klt=1
+            )
+        except Exception as e:
+            print(f"Error fetching daily data for weekly: {e}")
+            return []
+
+        if df is None or df.empty:
+            return []
+
+        # 转换日期
+        date_col = "日期" if "日期" in df.columns else "时间"
+        df[date_col] = pd.to_datetime(df[date_col])
+        df = df.sort_values(date_col)
+
+        # 将日期调整到周一
+        df["周一"] = df[date_col].apply(lambda x: x - timedelta(days=x.weekday()))
+
+        # 按周一分组聚合
+        open_col = "开盘" if "开盘" in df.columns else "开盘价"
+        close_col = "收盘" if "收盘" in df.columns else "收盘价"
+        high_col = "最高" if "最高" in df.columns else "最高价"
+        low_col = "最低" if "最低" in df.columns else "最低价"
+        volume_col = "成交量" if "成交量" in df.columns else "成交 量"
+        amount_col = "成交额" if "成交额" in df.columns else "成交 额"
+
+        weekly = df.groupby("周一").agg({
+            open_col: "first",
+            high_col: "max",
+            low_col: "min",
+            close_col: "last",
+            volume_col: "sum",
+            amount_col: "sum",
+        })
+
+        # 过滤日期范围
+        start_dt = datetime.strptime(start_date[:8], "%Y%m%d") if start_date else None
+        end_dt = datetime.strptime(end_date[:8], "%Y%m%d") if end_date else None
+
+        result = []
+        for monday, row in weekly.iterrows():
+            if start_dt and monday < start_dt:
+                continue
+            if end_dt and monday > end_dt:
+                continue
+
+            result.append(KLine(
+                symbol=symbol,
+                date=monday.strftime("%Y-%m-%d"),
+                open=_safe_float(row[open_col]),
+                high=_safe_float(row[high_col]),
+                low=_safe_float(row[low_col]),
+                close=_safe_float(row[close_col]),
+                volume=_safe_int(row[volume_col]),
+                amount=_safe_float(row[amount_col]),
+                source=self.name,
+            ))
+
         return result
 
     def get_minute(self, symbol: str, date: Optional[str] = None) -> List[MinuteData]:
@@ -410,23 +473,39 @@ class EFinanceProvider(DataProvider):
         stock_code = self._format_symbol(symbol)
 
         try:
-            # 获取股票基本信息
-            df = _get_efinance().stock.get_members(stock_code)
+            # 尝试获取股票概况
+            df = _get_efinance().stock.get_profile(stock_code)
         except Exception:
-            pass
+            df = None
 
-        # 尝试从实时行情获取基本信息
         try:
-            df = _get_efinance().stock.get_realtime_quotes([stock_code])
-            if df is None or df.empty:
+            # 从实时行情获取基本信息
+            df_quote = _get_efinance().stock.get_realtime_quotes([stock_code])
+            if df_quote is None or df_quote.empty:
                 return None
 
-            row = df.iloc[0]
+            row = df_quote.iloc[0]
+
+            # 从概况获取更多数据
+            if df is not None and not df.empty:
+                profile = df.iloc[0] if len(df) > 0 else {}
+            else:
+                profile = {}
+
             return StockInfo(
                 symbol=symbol,
                 name=str(row.get("名称", "")),
                 price=_safe_float(row.get("最新价", 0)),
                 change_pct=_safe_float(row.get("涨跌幅", 0)),
+                pe=_safe_float(profile.get("市盈率(动)", 0)),
+                pe_ttm=_safe_float(profile.get("市盈率(TTM)", 0)),
+                pb=_safe_float(profile.get("市净率", 0)),
+                market_cap=_safe_float(profile.get("总市值", 0)),
+                float_market_cap=_safe_float(profile.get("流通市值", 0)),
+                total_shares=_safe_float(profile.get("总股本", 0)),
+                float_shares=_safe_float(profile.get("流通股本", 0)),
+                turnover_rate=_safe_float(profile.get("换手率", 0)),
+                volume_ratio=_safe_float(profile.get("量比", 0)),
                 source=self.name,
             )
         except Exception as e:

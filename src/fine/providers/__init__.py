@@ -29,6 +29,7 @@ from .news_provider import (
     list_news_providers,
 )
 from .efinance import EFinanceProvider
+from .finnhub import FinnhubProvider
 from .sina import SinaProvider
 
 # Provider implementations
@@ -48,10 +49,10 @@ class ProviderRegistry:
         return provider_class
 
     @classmethod
-    def get(cls, name: str) -> DataProvider:
+    def get(cls, name: str, **kwargs) -> DataProvider:
         if name not in cls._providers:
             raise ValueError(f"Unknown provider: {name}. Available: {list(cls._providers.keys())}")
-        return cls._providers[name]()
+        return cls._providers[name](**kwargs)
 
     @classmethod
     def list_providers(cls) -> List[str]:
@@ -66,25 +67,15 @@ ProviderRegistry.register(BaostockProvider)
 ProviderRegistry.register(YFinanceProvider)
 ProviderRegistry.register(EFinanceProvider)
 ProviderRegistry.register(BaiduProvider)
+ProviderRegistry.register(FinnhubProvider)
 
 
 class MarketData:
     """统一行情接口"""
 
-    _store = None
-
-    def __init__(self, provider: str = "tencent"):
+    def __init__(self, provider: str = "tencent", **kwargs):
         self.provider_name = provider
-        self.provider: DataProvider = ProviderRegistry.get(provider)
-
-    @classmethod
-    def _get_store(cls):
-        """获取或创建缓存存储"""
-        if cls._store is None:
-            from fine.store import StoreRegistry
-
-            cls._store = StoreRegistry.get("csv")()
-        return cls._store
+        self.provider: DataProvider = ProviderRegistry.get(provider, **kwargs)
 
     def _normalize_period(self, period: str) -> str:
         """标准化period格式"""
@@ -105,58 +96,9 @@ class MarketData:
         period: str = "daily",
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        force: bool = False,
     ) -> List[KLine]:
         normalized_period = self._normalize_period(period)
-        store = self._get_store()
-
-        cached_klines = []
-        if not force:
-            cached_klines = store.load_klines(symbol, normalized_period, start_date, end_date)
-
-        needs_fetch = False
-        if force:
-            needs_fetch = True
-        elif not cached_klines:
-            needs_fetch = True
-        else:
-            if start_date:
-                earliest_date = cached_klines[0].get("date", "")
-                if not earliest_date or start_date < earliest_date:
-                    needs_fetch = True
-            if end_date:
-                latest_date = cached_klines[-1].get("date", "")
-                if not latest_date or end_date > latest_date:
-                    needs_fetch = True
-
-        if needs_fetch:
-            fetch_start = start_date
-            fetch_end = end_date
-
-            if cached_klines:
-                if start_date and start_date < cached_klines[0].get("date", ""):
-                    fetch_start = start_date
-                else:
-                    fetch_start = None
-                if end_date and end_date > cached_klines[-1].get("date", ""):
-                    fetch_end = end_date
-                else:
-                    fetch_end = None
-
-            new_klines = self.provider.get_kline(symbol, period, fetch_start, fetch_end)
-
-            if new_klines:
-                kline_dicts = []
-                for k in new_klines:
-                    d = k.to_dict()
-                    d["period"] = normalized_period
-                    kline_dicts.append(d)
-
-                store.save_klines(kline_dicts, symbol, normalized_period)
-
-            cached_klines = store.load_klines(symbol, normalized_period, start_date, end_date)
-
-        return [KLine(**k) for k in cached_klines]
+        return self.provider.get_kline(symbol, normalized_period, start_date, end_date)
 
     def get_kline_with_indicators(
         self,
@@ -222,16 +164,7 @@ class MarketData:
         return self.provider.get_hkstock(symbols)
 
     def get_stock_info(self, symbol: str) -> Optional[StockInfo]:
-        store = self._get_store()
-        cached = store.load_stock_info(symbol)
-        if cached:
-            return StockInfo(**cached)
-
-        stock_info = self.provider.get_stock_info(symbol)
-        if stock_info:
-            store.save_stock_info(stock_info.to_dict())
-
-        return stock_info
+        return self.provider.get_stock_info(symbol)
 
     def get_news(self, symbol: Optional[str] = None, news_type: str = "efinance") -> List[News]:
         """获取新闻数据
@@ -277,6 +210,7 @@ __all__ = [
     "YFinanceProvider",
     "EFinanceProvider",
     "BaiduProvider",
+    "FinnhubProvider",
     # Registry & Market
     "ProviderRegistry",
     "MarketData",

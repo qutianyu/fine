@@ -4,15 +4,7 @@ from typing import Dict, List, Optional, Union
 import yfinance as yf
 
 from .base import DataProvider, KLine, MinuteData, Quote, StockInfo, to_provider_period
-
-
-def _safe_float(value, default=0.0) -> float:
-    if value is None or value == "" or value == "nan":
-        return default
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return default
+from .utils import safe_float as _safe_float
 
 
 class YFinanceProvider(DataProvider):
@@ -170,8 +162,6 @@ class YFinanceProvider(DataProvider):
             return None
 
         market_cap = _safe_float(info.get("marketCap", 0))
-        if market_cap > 0 and market_cap < 1e12:
-            market_cap = market_cap
 
         return StockInfo(
             symbol=symbol,

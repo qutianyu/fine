@@ -12,26 +12,7 @@ from typing import Dict, List, Optional, Union
 import requests
 
 from .base import DataProvider, KLine, MinuteData, Quote, StockInfo, to_provider_period
-
-
-def _safe_float(value, default=0.0) -> float:
-    """安全转换为浮点数"""
-    if value == "-" or value is None or value == "" or value == "nan":
-        return default
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return default
-
-
-def _safe_int(value, default=0) -> int:
-    """安全转换为整数"""
-    if value == "-" or value is None or value == "" or value == "nan":
-        return default
-    try:
-        return int(float(value))
-    except (ValueError, TypeError):
-        return default
+from .utils import safe_float as _safe_float, safe_int as _safe_int
 
 
 class BaiduProvider(DataProvider):

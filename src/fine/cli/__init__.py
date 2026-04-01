@@ -4,7 +4,7 @@ Fine CLI - Command Line Interface for Fine
 
 Usage:
     fine backtest --cash 1000000 --data /path/to/data.csv --strategy /path/to/strategy.py
-    fine pd --symbols sh600519,sh600001 --start-date 2024-01-01 00:00 --end-date 2025-01-01 00:00 --period 1d --result /tmp
+    fine pd --symbols sh600519,sh600001 --start-time 2024-01-01 00:00 --end-time 2025-01-01 00:00 --period 1d --result /tmp
     fine cd --symbols sh600519,sh600000
     fine calculate --indicator kdj,macd --data /tmp/20260314191231.csv --result /tmp
     fine news --provider efinance --symbols sh600519 --result /tmp
@@ -24,23 +24,13 @@ from typing import Any, Dict, List
 import numpy as np
 import pandas as pd
 
-from fine.config import get_config
 from fine.indicators import TechnicalIndicators
 from fine.providers import MarketData
 from fine.strategies import get_strategy
 
 from .commands import run_backtest
 
-__version__ = "0.1.0"
-
-
-def _load_config() -> Dict[str, Any]:
-    """加载配置文件"""
-    try:
-        config = get_config()
-        return {"provider": config.provider, "period": config.period}
-    except Exception:
-        return {"provider": "akshare", "period": "1d"}
+__version__ = "0.2.0"
 
 
 INDICATOR_COLUMNS = {
@@ -48,7 +38,6 @@ INDICATOR_COLUMNS = {
     "macd": ["macd", "signal", "hist"],
     "rsi": ["rsi"],
     "wr": ["wr"],
-    "cci": ["cci"],
     "atr": ["atr"],
     "obv": ["obv"],
     "mfi": ["mfi"],
@@ -57,20 +46,37 @@ INDICATOR_COLUMNS = {
 }
 
 
+def _format_datetime(dt_str: str) -> str:
+    """格式化日期时间为 YYYYMMDHHMM 格式"""
+    # 去掉 - : 空格
+    dt_str = dt_str.replace("-", "").replace(":", "").replace(" ", "")
+    # 如果只有日期（8位），补充时间
+    if len(dt_str) == 8:
+        dt_str += "0000"
+    return dt_str
+
+
 def _cmd_data(args) -> int:
     """获取股票数据"""
     symbols = args.symbols.replace(",", " ").split()
-    start_date = args.start_date
-    end_date = args.end_date
+    start_date = args.start_time
+    end_date = args.end_time
     period = args.period or "1d"
     provider_name = args.provider or "akshare"
-    force = args.force
+    api_key = args.api_key
     result_dir = Path(os.path.expanduser(args.result)) if args.result else Path(".")
 
     try:
-        market_data = MarketData(provider=provider_name)
+        provider_kwargs = {"api_key": api_key} if api_key else {}
+        market_data = MarketData(provider=provider_name, **provider_kwargs)
 
-        all_klines: List[Dict[str, Any]] = []
+        result_dir.mkdir(parents=True, exist_ok=True)
+        fieldnames = ["symbol", "date", "open", "close", "high", "low", "volume"]
+
+        start_fmt = _format_datetime(start_date)
+        end_fmt = _format_datetime(end_date)
+
+        result_files = []
 
         for symbol in symbols:
             klines = market_data.get_kline(
@@ -78,11 +84,18 @@ def _cmd_data(args) -> int:
                 period=period,
                 start_date=start_date,
                 end_date=end_date,
-                force=force,
             )
-            for kl in klines:
-                all_klines.append(
-                    {
+
+            if not klines:
+                continue
+
+            result_file = result_dir / f"{symbol}_{start_fmt}-{end_fmt}_{period}.csv"
+
+            with open(result_file, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                for kl in klines:
+                    writer.writerow({
                         "symbol": symbol,
                         "date": kl.date,
                         "open": kl.open,
@@ -90,25 +103,15 @@ def _cmd_data(args) -> int:
                         "high": kl.high,
                         "low": kl.low,
                         "volume": kl.volume,
-                    }
-                )
+                    })
 
-        if not all_klines:
+            result_files.append(str(result_file))
+
+        if not result_files:
             print("No data fetched", file=sys.stderr)
             return 1
 
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        result_file = result_dir / f"{timestamp}.csv"
-        result_dir.mkdir(parents=True, exist_ok=True)
-
-        fieldnames = ["symbol", "date", "open", "close", "high", "low", "volume"]
-        with open(result_file, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in all_klines:
-                writer.writerow(row)
-
-        print(str(result_file))
+        print("\n".join(result_files))
         return 0
 
     except Exception as e:
@@ -121,8 +124,8 @@ def _cmd_news(args) -> int:
     """获取新闻数据"""
     news_provider = args.provider or "efinance"
     symbols = args.symbols.replace(",", " ").split() if args.symbols else []
-    start_date = args.start_date or ""
-    end_date = args.end_date or ""
+    start_date = args.start_time or ""
+    end_date = args.end_time or ""
     result_dir = Path(os.path.expanduser(args.result)) if args.result else Path(".")
 
     try:
@@ -454,6 +457,7 @@ def _cmd_backtest(args) -> int:
             ),
         },
         "result": args.result,
+        "lang": args.lang,
     }
 
     try:
@@ -506,10 +510,10 @@ def main() -> int:
         help="股票代码 (逗号或空格分隔)",
     )
     data_parser.add_argument(
-        "--start-date", type=str, required=True, help="开始日期 (yyyy-MM-dd HH:mm)"
+        "--start-time", type=str, required=True, help="开始日期 (yyyy-MM-dd HH:mm)"
     )
     data_parser.add_argument(
-        "--end-date", type=str, required=True, help="结束日期 (yyyy-MM-dd HH:mm)"
+        "--end-time", type=str, required=True, help="结束日期 (yyyy-MM-dd HH:mm)"
     )
     data_parser.add_argument(
         "--period",
@@ -522,14 +526,10 @@ def main() -> int:
         "--provider",
         type=str,
         default="akshare",
-        choices=["akshare", "baostock", "yfinance", "baidu"],
+        choices=["akshare", "baostock", "yfinance", "baidu", "finnhub"],
         help="数据源 (默认: akshare)",
     )
-    data_parser.add_argument(
-        "--force",
-        action="store_true",
-        help="强制从数据源获取，忽略缓存",
-    )
+    data_parser.add_argument("--api-key", type=str, help="API Key (finnhub 必填)")
     data_parser.add_argument("--result", type=str, help="输出目录")
 
     backtest_parser = subparsers.add_parser("backtest", help="运行回测")
@@ -542,6 +542,13 @@ def main() -> int:
     backtest_parser.add_argument("--stamp-duty", type=float, help="印花税率")
     backtest_parser.add_argument("--transfer-fee", type=float, help="过户费率")
     backtest_parser.add_argument("--result", type=str, help="输出目录")
+    backtest_parser.add_argument(
+        "--lang",
+        type=str,
+        default="zh",
+        choices=["zh", "en"],
+        help="输出语言 (默认: zh)",
+    )
 
     calc_parser = subparsers.add_parser("calculate", help="计算技术指标")
     calc_parser.add_argument("--indicator", type=str, required=True, help="技术指标 (逗号分隔)")
@@ -562,12 +569,12 @@ def main() -> int:
         help="新闻源 (efinance/cctv/economic，默认: efinance)",
     )
     news_parser.add_argument(
-        "--start-date",
+        "--start-time",
         type=str,
         help="开始日期 (yyyy-MM-dd HH:mm)",
     )
     news_parser.add_argument(
-        "--end-date",
+        "--end-time",
         type=str,
         help="结束日期 (yyyy-MM-dd HH:mm)",
     )

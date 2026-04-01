@@ -7,30 +7,20 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional, Union
 
+# Period mapping: standard -> provider format
 PERIOD_MAP = {
     "1h": "60",
     "1d": "daily",
-    "daily": "daily",
     "1w": "weekly",
-    "weekly": "weekly",
     "1M": "monthly",
-    "monthly": "monthly",
 }
 
 
 def normalize_period(period: str) -> str:
-    """标准化周期字符串为标准格式
-
-    Args:
-        period: 周期字符串 (如 "1h", "daily", "1d")
-
-    Returns:
-        标准化的周期: 1h, 1d, 1w, 1M
-    """
-    period_lower = period.lower()
+    """标准化周期字符串为标准格式"""
     mapping = {
         "60": "1h",
         "daily": "1d",
@@ -40,18 +30,11 @@ def normalize_period(period: str) -> str:
         "monthly": "1M",
         "1m": "1M",
     }
-    return mapping.get(period_lower, period_lower)
+    return mapping.get(period.lower(), period.lower())
 
 
 def to_provider_period(period: str) -> str:
-    """将周期转换为数据源特定格式
-
-    Args:
-        period: 标准格式周期 (1h, 1d, 1w, 1M)
-
-    Returns:
-        数据源格式 (60, daily, weekly, monthly)
-    """
+    """将周期转换为数据源特定格式"""
     return PERIOD_MAP.get(period, "daily")
 
 

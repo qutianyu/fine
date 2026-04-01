@@ -4,15 +4,7 @@ from typing import Dict, List, Optional, Union
 import baostock as bs
 
 from .base import DataProvider, KLine, MinuteData, Quote, StockInfo
-
-
-def _safe_float(value, default=0.0) -> float:
-    if value == "-" or value is None or value == "" or value == "nan":
-        return default
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return default
+from .utils import safe_float as _safe_float
 
 
 class BaostockProvider(DataProvider):

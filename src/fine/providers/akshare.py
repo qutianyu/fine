@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Union
 
+import pandas as pd
+
 from .base import (
     DataProvider,
     KLine,
@@ -9,26 +11,7 @@ from .base import (
     StockInfo,
     to_provider_period,
 )
-
-
-def _safe_float(value, default=0.0) -> float:
-    """安全转换为浮点数"""
-    if value == "-" or value is None or value == "":
-        return default
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return default
-
-
-def _safe_int(value, default=0) -> int:
-    """安全转换为整数"""
-    if value == "-" or value is None or value == "":
-        return default
-    try:
-        return int(float(value))
-    except (ValueError, TypeError):
-        return default
+from .utils import safe_float as _safe_float, safe_int as _safe_int
 
 
 class AkshareProvider(DataProvider):
@@ -175,6 +158,10 @@ class AkshareProvider(DataProvider):
 
         provider_period = to_provider_period(period)
 
+        # 周线需要对齐到周一，先获取日线再聚合
+        if period == "1w":
+            return self._get_weekly_kline(symbol, start_date, end_date)
+
         try:
             if provider_period in ("daily", "weekly", "monthly"):
                 df = ak.stock_zh_a_hist(
@@ -212,6 +199,81 @@ class AkshareProvider(DataProvider):
         except Exception as e:
             print(f"Error fetching kline: {e}")
             return []
+
+    def _get_weekly_kline(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+    ) -> List[KLine]:
+        """获取周线数据（周一开始）"""
+        import akshare as ak
+
+        # 先获取日线数据（多取一些以确保完整）
+        try:
+            # 扩展日期范围以确保包含完整的周
+            start_dt = datetime.strptime(start_date[:8], "%Y%m%d") if start_date else datetime.now() - timedelta(days=60)
+            end_dt = datetime.strptime(end_date[:8], "%Y%m%d") if end_date else datetime.now()
+
+            # 向前多取几周
+            actual_start = (start_dt - timedelta(days=14)).strftime("%Y%m%d")
+            actual_end = end_dt.strftime("%Y%m%d")
+
+            df = ak.stock_zh_a_hist(
+                symbol=symbol,
+                period="daily",
+                start_date=actual_start,
+                end_date=actual_end,
+                adjust="qfq",
+            )
+        except Exception as e:
+            print(f"Error fetching daily data for weekly: {e}")
+            return []
+
+        if df is None or df.empty:
+            return []
+
+        # 转换日期并设置为周一
+        df["日期"] = pd.to_datetime(df["日期"])
+        df = df.sort_values("日期")
+
+        # 将日期调整到周一
+        df["周一"] = df["日期"].apply(lambda x: x - timedelta(days=x.weekday()))
+
+        # 按周一分组聚合
+        weekly = df.groupby("周一").agg({
+            "开盘": "first",
+            "最高": "max",
+            "最低": "min",
+            "收盘": "last",
+            "成交量": "sum",
+            "成交额": "sum",
+        })
+
+        # 过滤日期范围
+        start_dt = datetime.strptime(start_date[:8], "%Y%m%d") if start_date else None
+        end_dt = datetime.strptime(end_date[:8], "%Y%m%d") if end_date else None
+
+        result = []
+        for monday, row in weekly.iterrows():
+            if start_dt and monday < start_dt:
+                continue
+            if end_dt and monday > end_dt:
+                continue
+
+            result.append(KLine(
+                symbol=symbol,
+                date=monday.strftime("%Y-%m-%d"),
+                open=float(row["开盘"]),
+                high=float(row["最高"]),
+                low=float(row["最低"]),
+                close=float(row["收盘"]),
+                volume=int(float(row["成交量"])),
+                amount=float(row["成交额"]),
+                source=self.name,
+            ))
+
+        return result
 
     def _get_hk_kline(
         self,

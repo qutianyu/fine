@@ -7,6 +7,8 @@ import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+import matplotlib
+import matplotlib.pyplot as plt
 import pandas as pd
 
 from ..backtest import (
@@ -34,13 +36,6 @@ def ensure_timestamp(config: Dict[str, Any]) -> str:
     if "_timestamp" not in config:
         config["_timestamp"] = get_timestamp()
     return config["_timestamp"]
-
-
-def save_cache(config: Dict[str, Any], provider) -> str:
-    work_dir = get_work_dir(config)
-    ts = ensure_timestamp(config)
-    cache_path = os.path.join(work_dir, f"cache_{ts}.csv")
-    return cache_path
 
 
 def save_result(config: Dict[str, Any], result: Any) -> str:
@@ -313,28 +308,5 @@ def run_backtest(config: Dict[str, Any]) -> Any:
     if config.get("work_dir"):
         result_path = save_result(config, result)
         print(f"\nResult saved to: {result_path}")
-
-        provider = create_provider(config.get("provider", "akshare")) if not data_file else None
-        cache_path = save_cache(config, provider)
-        trades = result.trades if hasattr(result, "trades") else []
-        if trades:
-            with open(cache_path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow(
-                    ["date", "symbol", "action", "price", "shares", "amount", "commission"]
-                )
-                for trade in trades:
-                    writer.writerow(
-                        [
-                            trade.date,
-                            trade.symbol,
-                            trade.action,
-                            f"{trade.price:.2f}",
-                            trade.shares,
-                            f"{trade.amount:.2f}" if hasattr(trade, "amount") else "",
-                            f"{trade.commission:.2f}" if hasattr(trade, "commission") else "",
-                        ]
-                    )
-            print(f"Cache saved to: {cache_path}")
 
     return result

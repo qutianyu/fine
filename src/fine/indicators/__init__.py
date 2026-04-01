@@ -6,10 +6,6 @@ from .base import Indicator, IndicatorResult
 from .momentum import KDJ, MACD, RSI, StochRSI
 from .oscillator.wr import WR
 from .trend import BBI, EMA, MA, SAR
-from .trend.bbi import BBI
-from .trend.ema import EMA
-from .trend.ma import MA
-from .trend.sar import SAR
 from .volatility import ATR, BollingerBands, DonchianChannel, KeltnerChannel
 from .volume import CMF, MFI, OBV, VR, VWAP, WilliamsAD
 
@@ -93,26 +89,16 @@ class TechnicalIndicators:
                 return indicator.compute(data["close"], **clean_params)
             elif name.upper() == "KDJ":
                 return indicator.compute(data["high"], data["low"], data["close"], **clean_params)
-            elif name.upper() in ["BOLL", "ATR", "VWAP", "CR", "SAR", "KC", "KELTNER"]:
+            elif name.upper() in ["BOLL", "ATR", "VWAP", "SAR", "KC", "KELTNER"]:
                 return indicator.compute(data["high"], data["low"], data["close"], **clean_params)
             elif name.upper() == "OBV":
                 return indicator.compute(data["close"], data["volume"], **clean_params)
-            elif name.upper() in ["MA", "EMA", "BBI", "RSI", "BIAS", "DMA", "TRIX"]:
+            elif name.upper() in ["MA", "EMA", "BBI", "RSI"]:
                 return indicator.compute(data["close"], **clean_params)
-            elif name.upper() in ["DMI", "WR", "CCI"]:
+            elif name.upper() == "WR":
                 return indicator.compute(data["high"], data["low"], data["close"], **clean_params)
             elif name.upper() == "VR":
                 return indicator.compute(data["close"], data["volume"], **clean_params)
-            elif name.upper() == "PSY":
-                return indicator.compute(data["close"], **clean_params)
-            elif name.upper() == "ARBR":
-                return indicator.compute(
-                    data["open"],
-                    data["high"],
-                    data["low"],
-                    data["close"],
-                    **clean_params,
-                )
             elif name.upper() == "MFI":
                 return indicator.compute(
                     data["high"],
@@ -135,8 +121,6 @@ class TechnicalIndicators:
                 return indicator.compute(data["close"], **clean_params)
             elif name.upper() == "DONCHIAN":
                 return indicator.compute(data["high"], data["low"], **clean_params)
-            elif name.upper() == "ULTIMATE":
-                return indicator.compute(data["high"], data["low"], data["close"], **clean_params)
 
         return indicator.compute(data, **clean_params)
 
@@ -195,13 +179,4 @@ __all__ = [
     "CMF",
     "VR",
     "WR",
-    "CCI",
-    "BIAS",
-    "CR",
-    "ARBR",
-    "PSY",
-    "DMI",
-    "UltimateOscillator",
-    "DMA",
-    "TRIX",
 ]

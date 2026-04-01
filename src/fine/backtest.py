@@ -21,9 +21,6 @@ from .strategies.portfolio import Portfolio
 from .strategies.strategy import Strategy
 from .strategy import SignalType, StockSignal
 
-if TYPE_CHECKING:
-    from .backtest import Position
-
 
 class StockPool(ABC):
     """股票池基类
@@ -464,8 +461,8 @@ class BacktestConfig:
     stamp_duty: float = 0.001  # 印花税率(千分比), 卖出时收取, 默认千1
     slippage: float = 0.0  # 滑点(成交价偏差比例), 例如0.001表示0.1%
     rebalance_days: int = 0  # 调仓周期(天数), 0表示每天检查调仓, >0表示每N天调仓一次
-    stock_pool = None  # 股票池对象
-    strategy = None  # 策略对象
+    stock_pool: Optional["StockPool"] = None  # 股票池对象
+    strategy: Optional["Strategy"] = None  # 策略对象
     benchmark_symbol: str = "sh000300"  # 基准指数代码, 用于计算超额收益
 
     @classmethod
@@ -796,13 +793,12 @@ class Backtest:
         market_data: MarketData = None,
         portfolio=None,
     ) -> None:
-        from fine.strategies.data import Data
-        from fine.strategies.indicators import Indicators
-
+        from .strategies.data import Data
+        from .strategies.indicators import Indicators
         from .indicators import TechnicalIndicators
 
         ti = TechnicalIndicators()
-        indicators = Indicators(symbol="", market_data=market_data)
+        indicators = Indicators(symbol="")
         period = getattr(strategy, "period", "1d")
 
         symbols = getattr(strategy, "symbols", [])
@@ -892,6 +888,8 @@ class Backtest:
                 commission_rate=self.commission_rate,
                 stamp_duty=self.stamp_duty,
                 slippage=self.slippage,
+                min_commission=getattr(self, "min_commission", 5.0),
+                transfer_fee=getattr(self, "transfer_fee", 0.00002),
             )
         else:
             portfolio = Portfolio(
@@ -904,6 +902,7 @@ class Backtest:
             self.portfolio = portfolio
 
         for idx, date in enumerate(trading_dates):
+            all_data = None
             if rebalance_days > 0 and (idx - last_rebalance_idx) >= rebalance_days:
                 symbols = stock_pool.get_symbols(date)
                 if symbols:
@@ -913,13 +912,8 @@ class Backtest:
                 symbols = stock_pool.get_symbols(date)
                 if symbols:
                     all_data = self._load_data(symbols, market_data, start_date, date)
-            else:
-                if not hasattr(self, "_current_data"):
-                    symbols = stock_pool.get_symbols(date)
-                    if symbols:
-                        all_data = self._load_data(symbols, market_data, start_date, date)
 
-            if "all_data" not in dir() or not all_data:
+            if all_data is None:
                 continue
 
             trading_dates_in_range = [d for d in self._get_trading_dates(all_data) if d <= date]
