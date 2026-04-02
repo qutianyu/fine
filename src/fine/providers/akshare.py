@@ -62,14 +62,19 @@ class AkshareProvider(DataProvider):
         if isinstance(symbols, str):
             symbols = [symbols]
 
+        # 去掉 sh/sz/hk 前缀，只保留纯代码用于匹配
+        raw_codes = [s.replace("sh", "").replace("sz", "").replace("hk", "") for s in symbols]
+
         df = ak.stock_zh_a_spot_em()
-        df = df[df["代码"].isin(symbols)]
+        df = df[df["代码"].isin(raw_codes)]
 
         result = {}
         for _, row in df.iterrows():
-            symbol = row["代码"]
-            result[symbol] = Quote(
-                symbol=symbol,
+            raw_code = row["代码"]
+            # 根据原始输入重建带前缀的 symbol
+            original = next((s for s in symbols if s.replace("sh", "").replace("sz", "").replace("hk", "") == raw_code), raw_code)
+            result[original] = Quote(
+                symbol=original,
                 name=row["名称"],
                 price=float(row["最新价"]) if row["最新价"] != "-" else 0,
                 change=float(row["涨跌额"]) if row["涨跌额"] != "-" else 0,
@@ -354,8 +359,11 @@ class AkshareProvider(DataProvider):
     def get_stock_info(self, symbol: str) -> Optional[StockInfo]:
         import akshare as ak
 
+        # 去掉 sh/sz/hk 前缀
+        raw_code = symbol.replace("sh", "").replace("sz", "").replace("hk", "")
+
         try:
-            df = ak.stock_individual_info_em(symbol=symbol)
+            df = ak.stock_individual_info_em(symbol=raw_code)
             info_dict = dict(zip(df["信息"].tolist(), df["value"].tolist()))
 
             return StockInfo(

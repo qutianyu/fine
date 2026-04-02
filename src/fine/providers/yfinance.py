@@ -1,8 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Union
-
 import yfinance as yf
-
 from .base import DataProvider, KLine, MinuteData, Quote, StockInfo, to_provider_period
 from .utils import safe_float as _safe_float
 

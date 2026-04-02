@@ -1,5 +1,3 @@
-import pytest
-
 
 class TestPortfolio:
     def test_init(self):

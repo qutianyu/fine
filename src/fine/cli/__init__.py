@@ -30,7 +30,7 @@ from fine.strategies import get_strategy
 
 from .commands import run_backtest
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 
 INDICATOR_COLUMNS = {
@@ -95,15 +95,17 @@ def _cmd_data(args) -> int:
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
                 for kl in klines:
-                    writer.writerow({
-                        "symbol": symbol,
-                        "date": kl.date,
-                        "open": kl.open,
-                        "close": kl.close,
-                        "high": kl.high,
-                        "low": kl.low,
-                        "volume": kl.volume,
-                    })
+                    writer.writerow(
+                        {
+                            "symbol": symbol,
+                            "date": kl.date,
+                            "open": kl.open,
+                            "close": kl.close,
+                            "high": kl.high,
+                            "low": kl.low,
+                            "volume": kl.volume,
+                        }
+                    )
 
             result_files.append(str(result_file))
 
@@ -122,14 +124,17 @@ def _cmd_data(args) -> int:
 
 def _cmd_news(args) -> int:
     """获取新闻数据"""
-    news_provider = args.provider or "efinance"
+    news_provider = args.provider or "akshare"
     symbols = args.symbols.replace(",", " ").split() if args.symbols else []
     start_date = args.start_time or ""
     end_date = args.end_time or ""
     result_dir = Path(os.path.expanduser(args.result)) if args.result else Path(".")
+    keywords = args.keywords.split() if args.keywords else []
 
     try:
-        market_data = MarketData(provider="akshare")
+        from fine.providers.news_provider import _filter_news_by_keywords
+
+        market_data = MarketData(provider=news_provider)
 
         result_dir.mkdir(parents=True, exist_ok=True)
 
@@ -142,11 +147,7 @@ def _cmd_news(args) -> int:
             start_fmt = format_date_for_filename(start_date)
             end_fmt = format_date_for_filename(end_date)
 
-            if symbol == "cctv" or symbol == "economic":
-                filename = f"news-{symbol}-{start_fmt}-{end_fmt}.md"
-            else:
-                filename = f"news-{symbol}-{start_fmt}-{end_fmt}.md"
-
+            filename = f"news-{symbol}-{start_fmt}-{end_fmt}.md"
             result_file = result_dir / filename
 
             with open(result_file, "w", encoding="utf-8") as f:
@@ -155,7 +156,7 @@ def _cmd_news(args) -> int:
                 elif symbol == "economic":
                     f.write("# 财经日历\n\n")
                 else:
-                    f.write(f"# 新闻 - {symbol}\n\n")
+                    f.write(f"# 新闻 - {symbol} ({news_provider})\n\n")
 
                 for news in news_list:
                     f.write(f"## {news.publish_date}\n\n")
@@ -169,16 +170,56 @@ def _cmd_news(args) -> int:
 
             return result_file
 
-        if news_provider == "efinance":
+        # xueqiu, yicai, sina, wallstreetcn 需要 symbols
+        if news_provider in ("xueqiu", "yicai"):
             if not symbols:
                 print(
-                    "Error: --symbols is required for efinance news provider",
+                    f"Error: --symbols is required for {news_provider} news provider",
+                    file=sys.stderr,
+                )
+                return 1
+            result_files = []
+            for symbol in symbols:
+                news_list = market_data.get_news(symbol=symbol, news_type="stock")
+                if keywords:
+                    news_list = _filter_news_by_keywords(news_list, keywords)
+                if news_list:
+                    result_file = write_news_to_markdown(news_list, symbol)
+                    result_files.append(str(result_file))
+            if result_files:
+                print("\n".join(result_files))
+                return 0
+            else:
+                print("No news fetched", file=sys.stderr)
+                return 1
+
+        elif news_provider in ("sina", "wallstreetcn"):
+            # sina 和 wallstreetcn 不需要 symbols
+            news_list = market_data.get_news(
+                news_type="roll" if news_provider == "sina" else "global"
+            )
+            if keywords:
+                news_list = _filter_news_by_keywords(news_list, keywords)
+            if news_list:
+                result_file = write_news_to_markdown(news_list, news_provider)
+                print(str(result_file))
+                return 0
+            else:
+                print("No news fetched", file=sys.stderr)
+                return 1
+
+        elif news_provider == "akshare":
+            if not symbols:
+                print(
+                    "Error: --symbols is required for akshare news provider",
                     file=sys.stderr,
                 )
                 return 1
             result_files = []
             for symbol in symbols:
                 news_list = market_data.get_news(symbol=symbol, news_type="efinance")
+                if keywords:
+                    news_list = _filter_news_by_keywords(news_list, keywords)
                 if news_list:
                     result_file = write_news_to_markdown(news_list, symbol)
                     result_files.append(str(result_file))
@@ -495,7 +536,7 @@ def _cmd_backtest(args) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(
         prog="fine",
-        description="Fine - Python 市场价格数据与交易回测库",
+        description="Fine - 市场价格数据与交易回测 CLI 工具",
     )
 
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -564,9 +605,9 @@ def main() -> int:
     news_parser.add_argument(
         "--provider",
         type=str,
-        default="efinance",
-        choices=["efinance", "cctv", "economic"],
-        help="新闻源 (efinance/cctv/economic，默认: efinance)",
+        default="akshare",
+        choices=["akshare", "xueqiu", "yicai", "sina", "wallstreetcn", "cctv", "economic"],
+        help="新闻源 (akshare/xueqiu/yicai/sina/wallstreetcn/cctv/economic，默认: akshare)",
     )
     news_parser.add_argument(
         "--start-time",
@@ -579,6 +620,11 @@ def main() -> int:
         help="结束日期 (yyyy-MM-dd HH:mm)",
     )
     news_parser.add_argument("--result", type=str, help="输出目录 (默认: 当前目录)")
+    news_parser.add_argument(
+        "--keywords",
+        type=str,
+        help="关键词过滤 (空格分隔，如: 银行 钢铁)",
+    )
 
     cd_parser = subparsers.add_parser("cd", help="获取公司数据 (市值、PE等)")
     cd_parser.add_argument(

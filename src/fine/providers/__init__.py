@@ -20,16 +20,31 @@ from .base import (
     StockInfo,
     TickData,
 )
+from .efinance import EFinanceProvider
+from .finnhub import FinnhubProvider
 
 # News provider
 from .news_provider import (
+    AkshareNewsProvider,
     News,
     NewsProvider,
+    SinaNewsProvider,
+    WallstreetcnNewsProvider,
+    XueqiuNewsProvider,
+    YicaiNewsProvider,
     get_news_provider,
     list_news_providers,
 )
-from .efinance import EFinanceProvider
-from .finnhub import FinnhubProvider
+
+# Playwright scraper
+from .playwright_scraper import (
+    EastmoneyScraper,
+    PlaywrightScraper,
+    ScrapedPage,
+    XueqiuScraper,
+    YicaiScraper,
+    create_scraper,
+)
 from .sina import SinaProvider
 
 # Provider implementations
@@ -73,9 +88,16 @@ ProviderRegistry.register(FinnhubProvider)
 class MarketData:
     """统一行情接口"""
 
+    # 支持新闻获取的 provider 列表
+    _news_providers = {"akshare", "efinance", "xueqiu", "yicai", "sina", "wallstreetcn"}
+
     def __init__(self, provider: str = "tencent", **kwargs):
         self.provider_name = provider
-        self.provider: DataProvider = ProviderRegistry.get(provider, **kwargs)
+        # 检查是否是新闻 provider（xueqiu, yicai 等不是数据 provider）
+        if provider in self._news_providers and provider not in ProviderRegistry.list_providers():
+            self.provider = None
+        else:
+            self.provider: DataProvider = ProviderRegistry.get(provider, **kwargs)
 
     def _normalize_period(self, period: str) -> str:
         """标准化period格式"""
@@ -97,6 +119,10 @@ class MarketData:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
     ) -> List[KLine]:
+        if self.provider is None:
+            raise ValueError(
+                f"Provider '{self.provider_name}' does not support get_kline. Use a data provider like akshare, baostock, yfinance, etc."
+            )
         normalized_period = self._normalize_period(period)
         return self.provider.get_kline(symbol, normalized_period, start_date, end_date)
 
@@ -156,28 +182,62 @@ class MarketData:
         }
 
     def get_minute(self, symbol: str, date: Optional[str] = None) -> List[MinuteData]:
+        if self.provider is None:
+            raise ValueError(
+                f"Provider '{self.provider_name}' does not support minute data. Use a data provider like akshare, baostock, yfinance, etc."
+            )
         return self.provider.get_minute(symbol, date)
 
     def get_hkstock(
         self, symbols: Optional[Union[str, List[str]]] = None
     ) -> Union[Dict[str, Quote], List[Quote]]:
+        if self.provider is None:
+            raise ValueError(
+                f"Provider '{self.provider_name}' does not support HK stock data. Use a data provider like akshare, baostock, yfinance, etc."
+            )
         return self.provider.get_hkstock(symbols)
 
     def get_stock_info(self, symbol: str) -> Optional[StockInfo]:
+        if self.provider is None:
+            raise ValueError(
+                f"Provider '{self.provider_name}' does not support stock info. Use a data provider like akshare, baostock, yfinance, etc."
+            )
         return self.provider.get_stock_info(symbol)
 
-    def get_news(self, symbol: Optional[str] = None, news_type: str = "efinance") -> List[News]:
+    def get_news(
+        self, symbol: Optional[str] = None, news_type: str = "efinance", fetch_content: bool = True
+    ) -> List[News]:
         """获取新闻数据
 
         Args:
-            symbol: 股票代码，当 news_type="efinance" 时使用
-            news_type: 新闻类型 ("efinance"-个股新闻, "cctv"-央视新闻, "economic"-财经日历)
+            symbol: 股票代码
+            news_type: 新闻类型 ("efinance"-个股新闻, "stock"-个股新闻, "roll"-滚动新闻, "global"-全球财经, "cctv"-央视新闻, "economic"-财经日历)
+            fetch_content: 是否获取完整文章内容（默认True，会增加请求时间）
 
         Returns:
             List[News]: 新闻数据列表
         """
-        news_provider = get_news_provider(self.provider_name)
-        return news_provider.get_news(symbol, news_type)
+        # 根据 provider 名称选择对应的新闻提供者
+        news_provider_name = self.provider_name
+        if news_provider_name in ("akshare", "efinance"):
+            news_provider = AkshareNewsProvider()
+        elif news_provider_name == "xueqiu":
+            news_provider = XueqiuNewsProvider()
+        elif news_provider_name == "yicai":
+            news_provider = YicaiNewsProvider()
+        elif news_provider_name == "sina":
+            news_provider = SinaNewsProvider()
+        elif news_provider_name == "wallstreetcn":
+            news_provider = WallstreetcnNewsProvider()
+        else:
+            # 其他 provider 尝试从注册表获取
+            try:
+                news_provider = get_news_provider(news_provider_name)
+            except ValueError:
+                # 如果没有对应的新闻提供者，回退到 akshare
+                news_provider = AkshareNewsProvider()
+
+        return news_provider.get_news(symbol, news_type, fetch_content=fetch_content)
 
     @classmethod
     def list_providers(cls) -> List[str]:
@@ -215,4 +275,11 @@ __all__ = [
     "ProviderRegistry",
     "MarketData",
     "create_provider",
+    # Playwright Scraper
+    "PlaywrightScraper",
+    "XueqiuScraper",
+    "YicaiScraper",
+    "EastmoneyScraper",
+    "ScrapedPage",
+    "create_scraper",
 ]

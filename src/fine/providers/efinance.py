@@ -75,9 +75,12 @@ class EFinanceProvider(DataProvider):
         if isinstance(symbols, str):
             symbols = [symbols]
 
+        # 格式化股票代码（去掉 sh/sz/hk 前缀）
+        formatted_symbols = [self._format_symbol(s) for s in symbols]
+
         # 获取实时报价
         try:
-            df = _get_efinance().stock.get_realtime_quotes(symbols)
+            df = _get_efinance().stock.get_realtime_quotes(formatted_symbols)
         except Exception as e:
             print(f"Error fetching quotes: {e}")
             return {}

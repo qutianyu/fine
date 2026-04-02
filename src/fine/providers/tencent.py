@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Union
 
 import requests
 
-from .base import DataProvider, KLine, MinuteData, Quote, StockInfo
+from .base import DataProvider, Quote, StockInfo
 from .utils import safe_float as _safe_float
 
 

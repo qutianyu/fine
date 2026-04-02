@@ -1,5 +1,3 @@
-import pytest
-
 
 class TestMarketData:
     def test_normalize_period(self):
@@ -124,15 +122,16 @@ class TestDataClasses:
 
 class TestPeriodNormalization:
     def test_normalize_period(self):
-        from fine.providers.base import normalize_period
+        from fine.providers import MarketData
 
-        assert normalize_period("60") == "1h"
-        assert normalize_period("daily") == "1d"
-        assert normalize_period("1d") == "1d"
-        assert normalize_period("weekly") == "1w"
-        assert normalize_period("1w") == "1w"
-        assert normalize_period("monthly") == "1M"
-        assert normalize_period("1M") == "1M"
+        md = MarketData(provider="akshare")
+        assert md._normalize_period("daily") == "1d"
+        assert md._normalize_period("1d") == "1d"
+        assert md._normalize_period("weekly") == "1w"
+        assert md._normalize_period("1w") == "1w"
+        assert md._normalize_period("monthly") == "1M"
+        assert md._normalize_period("1M") == "1M"
+        assert md._normalize_period("1h") == "1h"
 
     def test_to_provider_period(self):
         from fine.providers.base import to_provider_period

@@ -2,7 +2,7 @@
 数据类型定义模块
 
 定义市场数据的核心数据类型和Provider抽象基类。
-支持Quote(实时行情)、KLine(K线)、MinuteData(分钟数据)、TickData(分时数据)四种数据类型。
+支持Quote(实时行情)、KLine(K线)、MinuteData(分钟数据)三种数据类型。
 """
 
 from abc import ABC, abstractmethod
@@ -17,20 +17,6 @@ PERIOD_MAP = {
     "1w": "weekly",
     "1M": "monthly",
 }
-
-
-def normalize_period(period: str) -> str:
-    """标准化周期字符串为标准格式"""
-    mapping = {
-        "60": "1h",
-        "daily": "1d",
-        "1d": "1d",
-        "weekly": "1w",
-        "1w": "1w",
-        "monthly": "1M",
-        "1m": "1M",
-    }
-    return mapping.get(period.lower(), period.lower())
 
 
 def to_provider_period(period: str) -> str:
@@ -221,6 +207,7 @@ class StockInfo:
     volume_ratio: float = 0.0
     high_52w: float = 0.0
     low_52w: float = 0.0
+    beta: float = 0.0
     eps: float = 0.0
     bps: float = 0.0
     roe: float = 0.0
