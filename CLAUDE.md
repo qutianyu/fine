@@ -32,7 +32,7 @@ src/fine/
 │   ├── akshare.py         # Akshare provider（默认）
 │   ├── baostock.py        # Baostock provider
 │   ├── yfinance.py        # Yahoo Finance provider
-│   ├── efinance.py        # 东方财富 eFinance provider
+│   ├── eastmoney.py       # 东方财富 Playwright provider
 │   ├── baidu.py           # 百度 provider
 │   ├── finnhub.py         # Finnhub provider（需API Key）
 │   ├── sina.py            # Sina provider
@@ -159,7 +159,7 @@ class MyScraper(PlaywrightScraper):
 
 | Provider | 说明 | 依赖 |
 |----------|------|------|
-| `akshare` | 东方财富个股新闻（默认） | akshare, efinance |
+| `akshare` | 东方财富个股新闻（默认） | akshare |
 | `xueqiu` | 雪球个股新闻 | Playwright |
 | `yicai` | 第一财经个股新闻 | Playwright |
 | `sina` | 新浪财经滚动新闻 | requests |

@@ -20,7 +20,7 @@ from .base import (
     StockInfo,
     TickData,
 )
-from .efinance import EFinanceProvider
+from .eastmoney import EastmoneyProvider
 from .finnhub import FinnhubProvider
 
 # News provider
@@ -80,16 +80,23 @@ ProviderRegistry.register(SinaProvider)
 ProviderRegistry.register(AkshareProvider)
 ProviderRegistry.register(BaostockProvider)
 ProviderRegistry.register(YFinanceProvider)
-ProviderRegistry.register(EFinanceProvider)
 ProviderRegistry.register(BaiduProvider)
 ProviderRegistry.register(FinnhubProvider)
+ProviderRegistry.register(EastmoneyProvider)
 
 
 class MarketData:
     """统一行情接口"""
 
     # 支持新闻获取的 provider 列表
-    _news_providers = {"akshare", "efinance", "xueqiu", "yicai", "sina", "wallstreetcn"}
+    _news_providers = {
+        "akshare",
+        "xueqiu",
+        "yicai",
+        "sina",
+        "wallstreetcn",
+        "eastmoney",
+    }
 
     def __init__(self, provider: str = "tencent", **kwargs):
         self.provider_name = provider

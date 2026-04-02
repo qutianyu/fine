@@ -11,7 +11,8 @@ from .base import (
     StockInfo,
     to_provider_period,
 )
-from .utils import safe_float as _safe_float, safe_int as _safe_int
+from .utils import safe_float as _safe_float
+from .utils import safe_int as _safe_int
 
 
 class AkshareProvider(DataProvider):
@@ -72,7 +73,14 @@ class AkshareProvider(DataProvider):
         for _, row in df.iterrows():
             raw_code = row["代码"]
             # 根据原始输入重建带前缀的 symbol
-            original = next((s for s in symbols if s.replace("sh", "").replace("sz", "").replace("hk", "") == raw_code), raw_code)
+            original = next(
+                (
+                    s
+                    for s in symbols
+                    if s.replace("sh", "").replace("sz", "").replace("hk", "") == raw_code
+                ),
+                raw_code,
+            )
             result[original] = Quote(
                 symbol=original,
                 name=row["名称"],
@@ -217,7 +225,11 @@ class AkshareProvider(DataProvider):
         # 先获取日线数据（多取一些以确保完整）
         try:
             # 扩展日期范围以确保包含完整的周
-            start_dt = datetime.strptime(start_date[:8], "%Y%m%d") if start_date else datetime.now() - timedelta(days=60)
+            start_dt = (
+                datetime.strptime(start_date[:8], "%Y%m%d")
+                if start_date
+                else datetime.now() - timedelta(days=60)
+            )
             end_dt = datetime.strptime(end_date[:8], "%Y%m%d") if end_date else datetime.now()
 
             # 向前多取几周
@@ -246,14 +258,16 @@ class AkshareProvider(DataProvider):
         df["周一"] = df["日期"].apply(lambda x: x - timedelta(days=x.weekday()))
 
         # 按周一分组聚合
-        weekly = df.groupby("周一").agg({
-            "开盘": "first",
-            "最高": "max",
-            "最低": "min",
-            "收盘": "last",
-            "成交量": "sum",
-            "成交额": "sum",
-        })
+        weekly = df.groupby("周一").agg(
+            {
+                "开盘": "first",
+                "最高": "max",
+                "最低": "min",
+                "收盘": "last",
+                "成交量": "sum",
+                "成交额": "sum",
+            }
+        )
 
         # 过滤日期范围
         start_dt = datetime.strptime(start_date[:8], "%Y%m%d") if start_date else None
@@ -266,17 +280,19 @@ class AkshareProvider(DataProvider):
             if end_dt and monday > end_dt:
                 continue
 
-            result.append(KLine(
-                symbol=symbol,
-                date=monday.strftime("%Y-%m-%d"),
-                open=float(row["开盘"]),
-                high=float(row["最高"]),
-                low=float(row["最低"]),
-                close=float(row["收盘"]),
-                volume=int(float(row["成交量"])),
-                amount=float(row["成交额"]),
-                source=self.name,
-            ))
+            result.append(
+                KLine(
+                    symbol=symbol,
+                    date=monday.strftime("%Y-%m-%d"),
+                    open=float(row["开盘"]),
+                    high=float(row["最高"]),
+                    low=float(row["最低"]),
+                    close=float(row["收盘"]),
+                    volume=int(float(row["成交量"])),
+                    amount=float(row["成交额"]),
+                    source=self.name,
+                )
+            )
 
         return result
 

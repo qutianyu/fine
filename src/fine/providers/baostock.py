@@ -198,18 +198,31 @@ class BaostockProvider(DataProvider):
                 name = row[1]
                 break
 
-        rs = bs.query_real_time_price(code)
-        if rs.error_code != "0":
-            return None
-
+        # 获取最近交易日的价格数据
         price = 0.0
         change_pct = 0.0
-        while rs.next():
-            row = rs.get_row_data()
-            if len(row) >= 6:
-                price = _safe_float(row[2])
-                change_pct = _safe_float(row[4])
-                break
+        try:
+            end_date = datetime.today().strftime("%Y-%m-%d")
+            start_date = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
+            rs = bs.query_history_k_data_plus(
+                code,
+                "date,close,pctChg",
+                start_date=start_date,
+                end_date=end_date,
+                frequency="d",
+            )
+            if rs.error_code == "0":
+                rows = []
+                while rs.next():
+                    rows.append(rs.get_row_data())
+                if rows:
+                    last_row = rows[-1]
+                    price = _safe_float(last_row[1])
+                    change_pct = _safe_float(last_row[2])
+                else:
+                    print(f"[baostock] No history data for {code}")
+        except Exception:
+            pass
 
         return StockInfo(
             symbol=self._format_code(code),

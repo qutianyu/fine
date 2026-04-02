@@ -637,8 +637,8 @@ def main() -> int:
         "--provider",
         type=str,
         default="akshare",
-        choices=["akshare", "baostock", "yfinance", "baidu"],
-        help="数据源 (默认: akshare)",
+        choices=["akshare", "baostock", "yfinance", "baidu", "eastmoney"],
+        help="数据源 (akshare/baostock/yfinance/baidu/eastmoney，默认: akshare)",
     )
     cd_parser.add_argument("--result", type=str, help="输出目录")
 
