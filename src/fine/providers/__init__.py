@@ -22,6 +22,7 @@ from .base import (
 )
 from .eastmoney import EastmoneyProvider
 from .finnhub import FinnhubProvider
+from .tushare import TushareProvider
 
 # News provider
 from .news_provider import (
@@ -50,6 +51,7 @@ from .sina import SinaProvider
 # Provider implementations
 from .tencent import TencentProvider
 from .yfinance import YFinanceProvider
+from .netease import NetEaseProvider
 
 
 class ProviderRegistry:
@@ -83,6 +85,8 @@ ProviderRegistry.register(YFinanceProvider)
 ProviderRegistry.register(BaiduProvider)
 ProviderRegistry.register(FinnhubProvider)
 ProviderRegistry.register(EastmoneyProvider)
+ProviderRegistry.register(TushareProvider)
+ProviderRegistry.register(NetEaseProvider)
 
 
 class MarketData:

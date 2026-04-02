@@ -33,6 +33,8 @@ src/fine/
 │   ├── baostock.py        # Baostock provider
 │   ├── yfinance.py        # Yahoo Finance provider
 │   ├── eastmoney.py       # 东方财富 Playwright provider
+│   ├── tushare.py         # Tushare Pro provider
+│   ├── netease.py         # 网易财经 Playwright provider
 │   ├── baidu.py           # 百度 provider
 │   ├── finnhub.py         # Finnhub provider（需API Key）
 │   ├── sina.py            # Sina provider
@@ -159,9 +161,9 @@ class MyScraper(PlaywrightScraper):
 
 | Provider | 说明 | 依赖 |
 |----------|------|------|
-| `akshare` | 东方财富个股新闻（默认） | akshare |
-| `xueqiu` | 雪球个股新闻 | Playwright |
-| `yicai` | 第一财经个股新闻 | Playwright |
+| `akshare` | 东方财富财经新闻（默认） | akshare |
+| `xueqiu` | 雪球财经新闻 | Playwright |
+| `yicai` | 第一财经新闻 | Playwright |
 | `sina` | 新浪财经滚动新闻 | requests |
 | `wallstreetcn` | 华尔街见闻新闻 | requests |
 | `cctv` | 央视新闻 | akshare |
@@ -172,15 +174,15 @@ from fine.providers import MarketData
 
 # 东方财富新闻（默认）
 md = MarketData(provider="akshare")
-news = md.get_news(symbol="sh600519")
+news = md.get_news()
 
 # 雪球新闻（需要 Playwright）
 md = MarketData(provider="xueqiu")
-news = md.get_news(symbol="sh600519")
+news = md.get_news()
 
 # 第一财经新闻（需要 Playwright）
 md = MarketData(provider="yicai")
-news = md.get_news(symbol="sh600519")
+news = md.get_news()
 
 # 新浪财经滚动新闻（无需登录）
 md = MarketData(provider="sina")
@@ -218,8 +220,8 @@ fine pd --symbols sh600519 --start-time 2024-01-01 --end-time 2024-12-31
 fine cd --symbols sh600519,sh600000
 
 # 新闻数据（支持 --keywords 关键词过滤）
-fine news --provider akshare --symbols sh600519
-fine news --provider akshare --symbols sh600519 --keywords "茅台 涨价"
+fine news
+fine news --keywords "茅台"
 fine news --provider wallstreetcn --keywords "银行"
 fine news --provider cctv
 fine news --provider economic

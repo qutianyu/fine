@@ -1,12 +1,16 @@
 """
-Eastmoney Provider - 东方财富数据源
+NetEase Provider - 网易财经数据源
 
-使用 Playwright 从东方财富网页获取股票数据。
-适合在 akshare API 不可用时使用。
+使用 Playwright 从网易财经获取股票数据。
 
 依赖:
     pip install playwright
     playwright install chromium
+
+Usage:
+    from fine.providers import MarketData
+    md = MarketData(provider='163')
+    info = md.get_stock_info('sh600519')
 """
 
 import re
@@ -14,24 +18,21 @@ from typing import Dict, List, Optional, Union
 
 from .base import DataProvider, KLine, MinuteData, Quote, StockInfo
 from .utils import extract_float_from_content as _extract_float_from_content
-from .utils import extract_pct_from_content as _extract_pct_from_content
 from .utils import safe_float as _safe_float
 
 
-class EastmoneyProvider(DataProvider):
-    """东方财富数据提供者
+class NetEaseProvider(DataProvider):
+    """网易财经数据提供者
 
-    使用 Playwright 从东方财富网页爬取数据。
-    当 akshare API 不稳定时可以使用此 provider。
+    使用 Playwright 从网易财经获取股票数据。
+    当其他 API 不可用时可以使用此 provider。
 
     Usage:
         from fine.providers import MarketData
-
-        md = MarketData(provider="eastmoney")
-        info = md.get_stock_info("sh600519")
+        md = MarketData(provider="163")
     """
 
-    name = "eastmoney"
+    name = "163"
 
     def get_stock_info(self, symbol: str) -> Optional[StockInfo]:
         """获取股票基本信息
@@ -43,7 +44,7 @@ class EastmoneyProvider(DataProvider):
             StockInfo: 股票信息
         """
         try:
-            from .playwright_scraper import EastmoneyScraper
+            from .playwright_scraper import PlaywrightScraper
         except ImportError:
             print(
                 "Playwright not installed. Run: pip install playwright && playwright install chromium"
@@ -53,21 +54,19 @@ class EastmoneyProvider(DataProvider):
         try:
             # 格式化代码
             symbol_lower = symbol.lower()
-            if symbol_lower.startswith("hk"):
-                url = f"https://quote.eastmoney.com/hk/{symbol_lower[2:]}.html"
-            elif symbol_lower.startswith("sh") or symbol_lower.startswith("sz"):
-                market = "sh" if symbol_lower.startswith("sh") else "sz"
-                url = f"https://quote.eastmoney.com/{market}{symbol_lower[2:]}.html"
+            if symbol_lower.startswith("sh") or symbol_lower.startswith("sz"):
+                code = symbol_lower[2:]
+                url = f"https://money.163.com/stock/{code}.html"
             else:
                 # 纯数字代码，尝试判断市场
                 if symbol.startswith(("6",)):
-                    url = f"https://quote.eastmoney.com/sh{symbol}.html"
+                    url = f"https://money.163.com/stock/{symbol}.html"
                 else:
-                    url = f"https://quote.eastmoney.com/sz{symbol}.html"
+                    url = f"https://money.163.com/stock/{symbol}.html"
 
-            scraper = EastmoneyScraper()
+            scraper = PlaywrightScraper()
             page = scraper.scrape(
-                url, wait_for_selectors=[".stock-info", "#price9", ".current-price"]
+                url, wait_for_selectors=[".stock-info", ".price", ".m_stock_info"]
             )
             scraper.close()
 
@@ -77,22 +76,28 @@ class EastmoneyProvider(DataProvider):
             content = page.content
 
             # 从标题提取名称和代码
-            # 格式: "贵州茅台 1459.88 0.44(0.03%)最新价格_行情_走势图—东方财富网"
+            # 格式: "贵州茅台(600519)股票新闻_公告_行情_网易财经"
             title_match = re.search(
-                r"([^\s\d]+)\s*([\d.]+)\s*([-\d.]+)\(([-\d.]+)%\)\s*最新价格",
+                r"([^\(]+)\((\d+)\)",
                 page.title or "",
             )
             name = title_match.group(1).strip() if title_match else symbol
-            price = _safe_float(title_match.group(2) if title_match else None)
-            change_pct = _safe_float(title_match.group(4) if title_match else None)
+
+            # 提取价格相关数据
+            # 网易页面格式: 60.50 涨跌幅: 0.30(0.50%)
+            price_pattern = r"(\d+\.?\d*)\s*涨跌幅"
+            price_match = re.search(price_pattern, content)
+            price = _safe_float(price_match.group(1) if price_match else None)
+
+            change_pattern = r"涨跌幅[：:]?\s*([-\d.]+)\(([-\d.]+)%\)"
+            change_match = re.search(change_pattern, content)
+            change_pct = _safe_float(change_match.group(2) if change_match else None)
 
             # 提取更多字段
-            pe = _extract_float_from_content(content, "市盈")
-            pb = _extract_float_from_content(content, "市净")
+            pe = _extract_float_from_content(content, "市盈率")
+            pb = _extract_float_from_content(content, "市净率")
             market_cap = _extract_float_from_content(content, "总市值")
             float_market_cap = _extract_float_from_content(content, "流通市值")
-            turnover_rate = _extract_pct_from_content(content, "换手")
-            volume_ratio = _extract_float_from_content(content, "量比")
 
             return StockInfo(
                 symbol=symbol,
@@ -107,8 +112,8 @@ class EastmoneyProvider(DataProvider):
                 float_market_cap=float_market_cap,
                 total_shares=0.0,
                 float_shares=0.0,
-                turnover_rate=turnover_rate,
-                volume_ratio=volume_ratio,
+                turnover_rate=0.0,
+                volume_ratio=0.0,
                 high_52w=0.0,
                 low_52w=0.0,
                 eps=0.0,
@@ -121,7 +126,7 @@ class EastmoneyProvider(DataProvider):
                 source=self.name,
             )
         except Exception as e:
-            print(f"Error fetching stock info from eastmoney: {e}")
+            print(f"Error fetching stock info from 163: {e}")
             return None
 
     def get_kline(
@@ -131,14 +136,46 @@ class EastmoneyProvider(DataProvider):
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
     ) -> List[KLine]:
-        # 东方财富不支持通过爬虫获取 K 线数据
-        print("Eastmoney provider does not support get_kline. Use akshare or baostock provider.")
+        """获取K线数据
+
+        网易财经支持日K、周K、月K的爬取
+        """
+        print("163 provider: get_kline via scraping not implemented yet")
         return []
 
     def get_quote(self, symbols: Union[str, List[str]]) -> Union[Dict[str, Quote], List[Quote]]:
-        # 暂时不支持
-        print("Eastmoney provider does not support get_quote yet.")
-        return {} if isinstance(symbols, list) else {}
+        """获取实时行情"""
+        if isinstance(symbols, str):
+            symbols = [symbols]
+
+        result = {}
+        for symbol in symbols:
+            info = self.get_stock_info(symbol)
+            if info:
+                result[symbol] = Quote(
+                    symbol=symbol,
+                    name=info.name,
+                    price=info.price,
+                    change=0.0,
+                    change_pct=info.change_pct,
+                    volume=0,
+                    amount=0.0,
+                )
+        return result
+
+    def get_index(
+        self, symbols: Optional[Union[str, List[str]]] = None
+    ) -> Union[Dict[str, Quote], List[Quote]]:
+        print("163 provider does not support get_index.")
+        return {}
+
+    def get_etf(self) -> List[Quote]:
+        print("163 provider does not support get_etf.")
+        return []
+
+    def get_all_stocks(self) -> List[Quote]:
+        print("163 provider does not support get_all_stocks.")
+        return []
 
     def get_hkstock(
         self, symbols: Optional[Union[str, List[str]]] = None
@@ -146,18 +183,4 @@ class EastmoneyProvider(DataProvider):
         return {}
 
     def get_minute(self, symbol: str, date: Optional[str] = None) -> List[MinuteData]:
-        return []
-
-    def get_index(
-        self, symbols: Optional[Union[str, List[str]]] = None
-    ) -> Union[Dict[str, Quote], List[Quote]]:
-        print("Eastmoney provider does not support get_index.")
-        return {}
-
-    def get_etf(self) -> List[Quote]:
-        print("Eastmoney provider does not support get_etf.")
-        return []
-
-    def get_all_stocks(self) -> List[Quote]:
-        print("Eastmoney provider does not support get_all_stocks.")
         return []

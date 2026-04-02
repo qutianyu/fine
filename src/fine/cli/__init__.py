@@ -7,7 +7,8 @@ Usage:
     fine pd --symbols sh600519,sh600001 --start-time 2024-01-01 00:00 --end-time 2025-01-01 00:00 --period 1d --result /tmp
     fine cd --symbols sh600519,sh600000
     fine calculate --indicator kdj,macd --data /tmp/20260314191231.csv --result /tmp
-    fine news --provider efinance --symbols sh600519 --result /tmp
+    fine news --result /tmp
+    fine news --provider wallstreetcn --keywords 银行 --result /tmp
     fine news --provider cctv --result /tmp
     fine news --provider economic --result /tmp
 """
@@ -30,7 +31,7 @@ from fine.strategies import get_strategy
 
 from .commands import run_backtest
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 
 INDICATOR_COLUMNS = {
@@ -125,7 +126,6 @@ def _cmd_data(args) -> int:
 def _cmd_news(args) -> int:
     """获取新闻数据"""
     news_provider = args.provider or "akshare"
-    symbols = args.symbols.replace(",", " ").split() if args.symbols else []
     start_date = args.start_time or ""
     end_date = args.end_time or ""
     result_dir = Path(os.path.expanduser(args.result)) if args.result else Path(".")
@@ -143,20 +143,15 @@ def _cmd_news(args) -> int:
                 return "all"
             return dt_str.replace(":", "").replace(" ", "").replace("-", "")
 
-        def write_news_to_markdown(news_list: List, symbol: str) -> Path:
+        def write_news_to_markdown(news_list: List, title: str) -> Path:
             start_fmt = format_date_for_filename(start_date)
             end_fmt = format_date_for_filename(end_date)
 
-            filename = f"news-{symbol}-{start_fmt}-{end_fmt}.md"
+            filename = f"news-{news_provider}-{start_fmt}-{end_fmt}.md"
             result_file = result_dir / filename
 
             with open(result_file, "w", encoding="utf-8") as f:
-                if symbol == "cctv":
-                    f.write("# 央视新闻\n\n")
-                elif symbol == "economic":
-                    f.write("# 财经日历\n\n")
-                else:
-                    f.write(f"# 新闻 - {symbol} ({news_provider})\n\n")
+                f.write(f"# {title} ({news_provider})\n\n")
 
                 for news in news_list:
                     f.write(f"## {news.publish_date}\n\n")
@@ -170,88 +165,40 @@ def _cmd_news(args) -> int:
 
             return result_file
 
-        # xueqiu, yicai, sina, wallstreetcn 需要 symbols
-        if news_provider in ("xueqiu", "yicai"):
-            if not symbols:
-                print(
-                    f"Error: --symbols is required for {news_provider} news provider",
-                    file=sys.stderr,
-                )
-                return 1
-            result_files = []
-            for symbol in symbols:
-                news_list = market_data.get_news(symbol=symbol, news_type="stock")
-                if keywords:
-                    news_list = _filter_news_by_keywords(news_list, keywords)
-                if news_list:
-                    result_file = write_news_to_markdown(news_list, symbol)
-                    result_files.append(str(result_file))
-            if result_files:
-                print("\n".join(result_files))
-                return 0
-            else:
-                print("No news fetched", file=sys.stderr)
-                return 1
-
-        elif news_provider in ("sina", "wallstreetcn"):
-            # sina 和 wallstreetcn 不需要 symbols
-            news_list = market_data.get_news(
-                news_type="roll" if news_provider == "sina" else "global"
-            )
-            if keywords:
-                news_list = _filter_news_by_keywords(news_list, keywords)
-            if news_list:
-                result_file = write_news_to_markdown(news_list, news_provider)
-                print(str(result_file))
-                return 0
-            else:
-                print("No news fetched", file=sys.stderr)
-                return 1
-
-        elif news_provider == "akshare":
-            if not symbols:
-                print(
-                    "Error: --symbols is required for akshare news provider",
-                    file=sys.stderr,
-                )
-                return 1
-            result_files = []
-            for symbol in symbols:
-                news_list = market_data.get_news(symbol=symbol, news_type="efinance")
-                if keywords:
-                    news_list = _filter_news_by_keywords(news_list, keywords)
-                if news_list:
-                    result_file = write_news_to_markdown(news_list, symbol)
-                    result_files.append(str(result_file))
-            if result_files:
-                print("\n".join(result_files))
-                return 0
-            else:
-                print("No news fetched", file=sys.stderr)
-                return 1
-
+        # 获取新闻
+        if news_provider == "akshare":
+            news_list = market_data.get_news(news_type="efinance")
+        elif news_provider == "xueqiu":
+            news_list = market_data.get_news(news_type="stock")
+        elif news_provider == "yicai":
+            news_list = market_data.get_news(news_type="stock")
+        elif news_provider == "sina":
+            news_list = market_data.get_news(news_type="roll")
+        elif news_provider == "wallstreetcn":
+            news_list = market_data.get_news(news_type="global")
         elif news_provider == "cctv":
             news_list = market_data.get_news(news_type="cctv")
-            if news_list:
-                result_file = write_news_to_markdown(news_list, "cctv")
-                print(str(result_file))
-                return 0
-            else:
-                print("No news fetched", file=sys.stderr)
-                return 1
-
         elif news_provider == "economic":
             news_list = market_data.get_news(news_type="economic")
-            if news_list:
-                result_file = write_news_to_markdown(news_list, "economic")
-                print(str(result_file))
-                return 0
-            else:
-                print("No news fetched", file=sys.stderr)
-                return 1
-
         else:
             print(f"Error: Unknown news provider: {news_provider}", file=sys.stderr)
+            return 1
+
+        # 关键词过滤
+        if keywords:
+            news_list = _filter_news_by_keywords(news_list, keywords)
+
+        if news_list:
+            title = "新闻"
+            if news_provider == "cctv":
+                title = "央视新闻"
+            elif news_provider == "economic":
+                title = "财经日历"
+            result_file = write_news_to_markdown(news_list, title)
+            print(str(result_file))
+            return 0
+        else:
+            print("No news fetched", file=sys.stderr)
             return 1
 
     except Exception as e:
@@ -264,10 +211,12 @@ def _cmd_cd(args) -> int:
     """获取公司数据"""
     symbols = args.symbols.replace(",", " ").split()
     provider_name = args.provider or "akshare"
+    api_key = args.api_key
     result_dir = Path(os.path.expanduser(args.result)) if args.result else Path(".")
 
     try:
-        market_data = MarketData(provider=provider_name)
+        provider_kwargs = {"api_token": api_key} if api_key else {}
+        market_data = MarketData(provider=provider_name, **provider_kwargs)
 
         all_data: List[Dict[str, Any]] = []
 
@@ -567,10 +516,10 @@ def main() -> int:
         "--provider",
         type=str,
         default="akshare",
-        choices=["akshare", "baostock", "yfinance", "baidu", "finnhub"],
+        choices=["akshare", "baostock", "yfinance", "baidu", "finnhub", "tushare", "eastmoney"],
         help="数据源 (默认: akshare)",
     )
-    data_parser.add_argument("--api-key", type=str, help="API Key (finnhub 必填)")
+    data_parser.add_argument("--api-key", type=str, help="API Key (finnhub/tushare 必填)")
     data_parser.add_argument("--result", type=str, help="输出目录")
 
     backtest_parser = subparsers.add_parser("backtest", help="运行回测")
@@ -598,16 +547,11 @@ def main() -> int:
 
     news_parser = subparsers.add_parser("news", help="获取新闻数据")
     news_parser.add_argument(
-        "--symbols",
-        type=str,
-        help="股票代码 (逗号或空格分隔)",
-    )
-    news_parser.add_argument(
         "--provider",
         type=str,
         default="akshare",
         choices=["akshare", "xueqiu", "yicai", "sina", "wallstreetcn", "cctv", "economic"],
-        help="新闻源 (akshare/xueqiu/yicai/sina/wallstreetcn/cctv/economic，默认: akshare)",
+        help="新闻源 (默认: akshare)",
     )
     news_parser.add_argument(
         "--start-time",
@@ -637,9 +581,10 @@ def main() -> int:
         "--provider",
         type=str,
         default="akshare",
-        choices=["akshare", "baostock", "yfinance", "baidu", "eastmoney"],
-        help="数据源 (akshare/baostock/yfinance/baidu/eastmoney，默认: akshare)",
+        choices=["akshare", "baostock", "yfinance", "baidu", "eastmoney", "tushare"],
+        help="数据源 (默认: akshare)",
     )
+    cd_parser.add_argument("--api-key", type=str, help="API Key (tushare 必填)")
     cd_parser.add_argument("--result", type=str, help="输出目录")
 
     args = parser.parse_args()
