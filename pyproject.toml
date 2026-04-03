@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=69.5.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -19,7 +19,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Office/Business :: Financial",
@@ -27,10 +26,10 @@ classifiers = [
 ]
 
 dependencies = [
-    "numpy>=1.26.0",
+    "numpy>=1.26.4",
     "pandas>=2.3.3",
     "requests>=2.33.1",
-    "akshare>=1.18.49",
+    "akshare>=1.18.50",
     "baostock>=0.8.9",
     "yfinance>=0.2.66",
     "platformdirs>=4.9.4",
@@ -42,7 +41,7 @@ dev = [
     "isort>=5.13.2",
     "flake8>=7.3.0",
     "pylint>=3.3.9",
-    "mypy>=1.19.1",
+    "mypy>=1.20.0",
     "pytest>=9.0.2",
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.15.1",
@@ -68,7 +67,7 @@ fine = ["py.typed"]
 
 [tool.black]
 line-length = 100
-target-version = ["py310", "py311", "py312"]
+target-version = ["py311", "py312"]
 include = '\.pyi?$'
 extend-exclude = '''
 /(

@@ -279,7 +279,7 @@ __all__ = [
     "AkshareProvider",
     "BaostockProvider",
     "YFinanceProvider",
-    "EFinanceProvider",
+    "EastmoneyProvider",
     "BaiduProvider",
     "FinnhubProvider",
     # Registry & Market

@@ -230,5 +230,9 @@ fine news --provider economic
 fine backtest --data /path/to/data.csv --strategy /path/to/strategy.py
 
 # 计算指标
-fine calculate --indicator rsi,macd --data /tmp/data.csv
+fine calculate --type indicator --data /tmp/data.csv
+fine calculate --type returns --data /tmp/data.csv
+fine calculate --type rolling --window 20 --data /tmp/data.csv
+fine calculate --type risk --risk-free-rate 0.03 --data /tmp/data.csv
+fine calculate --type all --data /tmp/data.csv
 ```

@@ -6,480 +6,14 @@ Usage:
     fine backtest --cash 1000000 --data /path/to/data.csv --strategy /path/to/strategy.py
     fine pd --symbols sh600519,sh600001 --start-time 2024-01-01 00:00 --end-time 2025-01-01 00:00 --period 1d --result /tmp
     fine cd --symbols sh600519,sh600000
-    fine calculate --indicator kdj,macd --data /tmp/20260314191231.csv --result /tmp
+    fine calculate --type indicator --data /tmp/data.csv --result /tmp
     fine news --result /tmp
-    fine news --provider wallstreetcn --keywords 银行 --result /tmp
-    fine news --provider cctv --result /tmp
-    fine news --provider economic --result /tmp
 """
 
 import argparse
-import csv
-import os
 import sys
-import traceback
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List
 
-import numpy as np
-import pandas as pd
-
-from fine.indicators import TechnicalIndicators
-from fine.providers import MarketData
-from fine.strategies import get_strategy
-
-from .commands import run_backtest
-
-__version__ = "0.3.1"
-
-
-INDICATOR_COLUMNS = {
-    "kdj": ["k", "d", "j"],
-    "macd": ["macd", "signal", "hist"],
-    "rsi": ["rsi"],
-    "wr": ["wr"],
-    "atr": ["atr"],
-    "obv": ["obv"],
-    "mfi": ["mfi"],
-    "cmf": ["cmf"],
-    "vr": ["vr"],
-}
-
-
-def _format_datetime(dt_str: str) -> str:
-    """格式化日期时间为 YYYYMMDHHMM 格式"""
-    # 去掉 - : 空格
-    dt_str = dt_str.replace("-", "").replace(":", "").replace(" ", "")
-    # 如果只有日期（8位），补充时间
-    if len(dt_str) == 8:
-        dt_str += "0000"
-    return dt_str
-
-
-def _cmd_data(args) -> int:
-    """获取股票数据"""
-    symbols = args.symbols.replace(",", " ").split()
-    start_date = args.start_time
-    end_date = args.end_time
-    period = args.period or "1d"
-    provider_name = args.provider or "akshare"
-    api_key = args.api_key
-    result_dir = Path(os.path.expanduser(args.result)) if args.result else Path(".")
-
-    try:
-        provider_kwargs = {"api_key": api_key} if api_key else {}
-        market_data = MarketData(provider=provider_name, **provider_kwargs)
-
-        result_dir.mkdir(parents=True, exist_ok=True)
-        fieldnames = ["symbol", "date", "open", "close", "high", "low", "volume"]
-
-        start_fmt = _format_datetime(start_date)
-        end_fmt = _format_datetime(end_date)
-
-        result_files = []
-
-        for symbol in symbols:
-            klines = market_data.get_kline(
-                symbol,
-                period=period,
-                start_date=start_date,
-                end_date=end_date,
-            )
-
-            if not klines:
-                continue
-
-            result_file = result_dir / f"{symbol}_{start_fmt}-{end_fmt}_{period}.csv"
-
-            with open(result_file, "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                writer.writeheader()
-                for kl in klines:
-                    writer.writerow(
-                        {
-                            "symbol": symbol,
-                            "date": kl.date,
-                            "open": kl.open,
-                            "close": kl.close,
-                            "high": kl.high,
-                            "low": kl.low,
-                            "volume": kl.volume,
-                        }
-                    )
-
-            result_files.append(str(result_file))
-
-        if not result_files:
-            print("No data fetched", file=sys.stderr)
-            return 1
-
-        print("\n".join(result_files))
-        return 0
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        traceback.print_exc()
-        return 1
-
-
-def _cmd_news(args) -> int:
-    """获取新闻数据"""
-    news_provider = args.provider or "akshare"
-    start_date = args.start_time or ""
-    end_date = args.end_time or ""
-    result_dir = Path(os.path.expanduser(args.result)) if args.result else Path(".")
-    keywords = args.keywords.split() if args.keywords else []
-
-    try:
-        from fine.providers.news_provider import _filter_news_by_keywords
-
-        market_data = MarketData(provider=news_provider)
-
-        result_dir.mkdir(parents=True, exist_ok=True)
-
-        def format_date_for_filename(dt_str: str) -> str:
-            if not dt_str:
-                return "all"
-            return dt_str.replace(":", "").replace(" ", "").replace("-", "")
-
-        def write_news_to_markdown(news_list: List, title: str) -> Path:
-            start_fmt = format_date_for_filename(start_date)
-            end_fmt = format_date_for_filename(end_date)
-
-            filename = f"news-{news_provider}-{start_fmt}-{end_fmt}.md"
-            result_file = result_dir / filename
-
-            with open(result_file, "w", encoding="utf-8") as f:
-                f.write(f"# {title} ({news_provider})\n\n")
-
-                for news in news_list:
-                    f.write(f"## {news.publish_date}\n\n")
-                    f.write(f"- **标题**: {news.title}\n")
-                    f.write(f"- **来源**: {news.source}\n")
-                    if news.url:
-                        f.write(f"- **链接**: {news.url}\n")
-                    if news.content:
-                        f.write(f"- **内容**: {news.content}\n")
-                    f.write("\n---\n\n")
-
-            return result_file
-
-        # 获取新闻
-        if news_provider == "akshare":
-            news_list = market_data.get_news(news_type="efinance")
-        elif news_provider == "xueqiu":
-            news_list = market_data.get_news(news_type="stock")
-        elif news_provider == "yicai":
-            news_list = market_data.get_news(news_type="stock")
-        elif news_provider == "sina":
-            news_list = market_data.get_news(news_type="roll")
-        elif news_provider == "wallstreetcn":
-            news_list = market_data.get_news(news_type="global")
-        elif news_provider == "cctv":
-            news_list = market_data.get_news(news_type="cctv")
-        elif news_provider == "economic":
-            news_list = market_data.get_news(news_type="economic")
-        else:
-            print(f"Error: Unknown news provider: {news_provider}", file=sys.stderr)
-            return 1
-
-        # 关键词过滤
-        if keywords:
-            news_list = _filter_news_by_keywords(news_list, keywords)
-
-        if news_list:
-            title = "新闻"
-            if news_provider == "cctv":
-                title = "央视新闻"
-            elif news_provider == "economic":
-                title = "财经日历"
-            result_file = write_news_to_markdown(news_list, title)
-            print(str(result_file))
-            return 0
-        else:
-            print("No news fetched", file=sys.stderr)
-            return 1
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        traceback.print_exc()
-        return 1
-
-
-def _cmd_cd(args) -> int:
-    """获取公司数据"""
-    symbols = args.symbols.replace(",", " ").split()
-    provider_name = args.provider or "akshare"
-    api_key = args.api_key
-    result_dir = Path(os.path.expanduser(args.result)) if args.result else Path(".")
-
-    try:
-        provider_kwargs = {"api_token": api_key} if api_key else {}
-        market_data = MarketData(provider=provider_name, **provider_kwargs)
-
-        all_data: List[Dict[str, Any]] = []
-
-        for symbol in symbols:
-            stock_info = market_data.get_stock_info(symbol)
-            if stock_info:
-                all_data.append(
-                    {
-                        "symbol": stock_info.symbol,
-                        "name": stock_info.name,
-                        "price": stock_info.price,
-                        "change_pct": stock_info.change_pct,
-                        "pe": stock_info.pe,
-                        "pe_ttm": stock_info.pe_ttm,
-                        "pb": stock_info.pb,
-                        "market_cap": stock_info.market_cap,
-                        "float_market_cap": stock_info.float_market_cap,
-                        "total_shares": stock_info.total_shares,
-                        "float_shares": stock_info.float_shares,
-                        "turnover_rate": stock_info.turnover_rate,
-                        "volume_ratio": stock_info.volume_ratio,
-                        "high_52w": stock_info.high_52w,
-                        "low_52w": stock_info.low_52w,
-                        "eps": stock_info.eps,
-                        "bps": stock_info.bps,
-                        "roe": stock_info.roe,
-                        "gross_margin": stock_info.gross_margin,
-                        "net_margin": stock_info.net_margin,
-                        "revenue": stock_info.revenue,
-                        "profit": stock_info.profit,
-                    }
-                )
-
-        if not all_data:
-            print("No data fetched", file=sys.stderr)
-            return 1
-
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        result_file = result_dir / f"company_{timestamp}.csv"
-        result_dir.mkdir(parents=True, exist_ok=True)
-
-        fieldnames = [
-            "symbol",
-            "name",
-            "price",
-            "change_pct",
-            "pe",
-            "pe_ttm",
-            "pb",
-            "market_cap",
-            "float_market_cap",
-            "total_shares",
-            "float_shares",
-            "turnover_rate",
-            "volume_ratio",
-            "high_52w",
-            "low_52w",
-            "eps",
-            "bps",
-            "roe",
-            "gross_margin",
-            "net_margin",
-            "revenue",
-            "profit",
-        ]
-        with open(result_file, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in all_data:
-                writer.writerow(row)
-
-        print(str(result_file))
-        return 0
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        traceback.print_exc()
-        return 1
-
-
-def _cmd_calculate(args) -> int:
-    """计算技术指标"""
-    indicator_names = [x.strip().lower() for x in args.indicator.split(",")]
-    data_file = Path(args.data)
-    result_dir = Path(os.path.expanduser(args.result)) if args.result else Path(".")
-
-    if not data_file.exists():
-        print(f"Error: Data file not found: {data_file}", file=sys.stderr)
-        return 1
-
-    try:
-        df = pd.read_csv(data_file)
-
-        required_cols = {"symbol", "date", "open", "close", "high", "low", "volume"}
-        if not required_cols.issubset(set(df.columns)):
-            print(f"Error: CSV must contain columns: {required_cols}", file=sys.stderr)
-            return 1
-
-        ti = TechnicalIndicators()
-        result_dfs = []
-
-        for symbol, group in df.groupby("symbol"):
-            group = group.sort_values("date").reset_index(drop=True)
-
-            close = group["close"].values
-            high = group["high"].values
-            low = group["low"].values
-            volume = group["volume"].values
-
-            ohlcv = {
-                "close": close,
-                "high": high,
-                "low": low,
-                "volume": volume,
-                "open": group["open"].values,
-            }
-
-            for ind_name in indicator_names:
-                try:
-                    result = ti.compute(ind_name, ohlcv)
-                    if result is None:
-                        continue
-
-                    cols = INDICATOR_COLUMNS.get(ind_name, [])
-                    if isinstance(result, dict):
-                        for col in cols:
-                            if col in result:
-                                group[col] = result[col]
-                            elif hasattr(result, col):
-                                group[col] = getattr(result, col)
-                    elif hasattr(result, "values"):
-                        if len(cols) == 1:
-                            group[cols[0]] = result.values
-                        else:
-                            for i, col in enumerate(cols):
-                                if i < result.shape[1]:
-                                    group[col] = result[:, i]
-                except Exception as e:
-                    print(
-                        f"Warning: Failed to compute {ind_name} for {symbol}: {e}",
-                        file=sys.stderr,
-                    )
-
-            result_dfs.append(group)
-
-        if not result_dfs:
-            print("Error: No data after calculation", file=sys.stderr)
-            return 1
-
-        result_df = pd.concat(result_dfs, ignore_index=True)
-
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
-        result_file = result_dir / f"{timestamp}.csv"
-        result_dir.mkdir(parents=True, exist_ok=True)
-
-        result_df.to_csv(result_file, index=False)
-
-        print(str(result_file))
-        return 0
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        traceback.print_exc()
-        return 1
-
-
-def _cmd_backtest(args) -> int:
-    """运行回测"""
-    data_file = Path(args.data)
-
-    if not data_file.exists():
-        print(f"Error: Data file not found: {data_file}", file=sys.stderr)
-        return 1
-
-    try:
-        df = pd.read_csv(data_file)
-
-        required_cols = {"symbol", "date", "open", "close", "high", "low", "volume"}
-        if not required_cols.issubset(set(df.columns)):
-            print(f"Error: CSV must contain columns: {required_cols}", file=sys.stderr)
-            return 1
-
-        symbols = df["symbol"].unique().tolist()
-        start_date = df["date"].min()
-        end_date = df["date"].max()
-
-    except Exception as e:
-        print(f"Error reading data file: {e}", file=sys.stderr)
-        return 1
-
-    try:
-        strategy = get_strategy(args.strategy)
-    except Exception as e:
-        print(f"Error loading strategy: {e}")
-        return 1
-
-    strategy_name = getattr(strategy, "name", "strategy")
-
-    config = {
-        "cash": args.cash if args.cash is not None else getattr(strategy, "cash", 1000000),
-        "data_file": str(data_file),
-        "symbols": symbols,
-        "strategy": args.strategy,
-        "strategy_name": strategy_name,
-        "period": args.period or getattr(strategy, "period", "1d"),
-        "start_date": start_date,
-        "end_date": end_date,
-        "fee_rate": {
-            "commission_rate": (
-                args.commission
-                if args.commission is not None
-                else getattr(strategy, "commission_rate", 0.0003)
-            ),
-            "min_commission": (
-                args.min_commission
-                if args.min_commission is not None
-                else getattr(strategy, "min_commission", 5.0)
-            ),
-            "stamp_duty": (
-                args.stamp_duty
-                if args.stamp_duty is not None
-                else getattr(strategy, "stamp_duty", 0.001)
-            ),
-            "transfer_fee": (
-                args.transfer_fee
-                if args.transfer_fee is not None
-                else getattr(strategy, "transfer_fee", 0.00002)
-            ),
-        },
-        "result": args.result,
-        "lang": args.lang,
-    }
-
-    try:
-        result = run_backtest(config)
-
-        output = []
-        output.append("\n" + "=" * 50)
-        output.append("Backtest Result")
-        output.append("=" * 50)
-        output.append(f"Initial Capital: {result.initial_capital:,.2f}")
-        output.append(f"Final Capital: {result.final_capital:,.2f}")
-
-        if hasattr(result, "metrics"):
-            m = result.metrics
-            output.append(f"\nPerformance Metrics:")
-            output.append(f"  Total Return: {m.total_return:.2f}%")
-            output.append(f"  Annualized Return: {m.annualized_return:.2f}%")
-            output.append(f"  Sharpe Ratio: {m.sharpe_ratio:.2f}")
-            output.append(f"  Max Drawdown: {m.max_drawdown:.2f}%")
-            output.append(f"  Win Rate: {m.win_rate:.2f}%")
-            output.append(f"  Total Trades: {m.total_trades}")
-
-        output_str = "\n".join(output)
-
-        print(output_str)
-
-        return 0
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        traceback.print_exc()
-        return 1
+__version__ = "0.3.2"
 
 
 def main() -> int:
@@ -492,6 +26,7 @@ def main() -> int:
 
     subparsers = parser.add_subparsers(dest="command", help="命令列表")
 
+    # pd command
     data_parser = subparsers.add_parser("pd", help="获取价格数据 (K线)")
     data_parser.add_argument(
         "--symbols",
@@ -522,6 +57,7 @@ def main() -> int:
     data_parser.add_argument("--api-key", type=str, help="API Key (finnhub/tushare 必填)")
     data_parser.add_argument("--result", type=str, help="输出目录")
 
+    # backtest command
     backtest_parser = subparsers.add_parser("backtest", help="运行回测")
     backtest_parser.add_argument("--cash", type=float, help="初始资金")
     backtest_parser.add_argument("--data", type=str, required=True, help="数据CSV文件")
@@ -540,11 +76,36 @@ def main() -> int:
         help="输出语言 (默认: zh)",
     )
 
-    calc_parser = subparsers.add_parser("calculate", help="计算技术指标")
-    calc_parser.add_argument("--indicator", type=str, required=True, help="技术指标 (逗号分隔)")
+    # calculate command
+    calc_parser = subparsers.add_parser("calculate", help="计算技术指标、收益率或风险指标")
+    calc_parser.add_argument(
+        "--type",
+        type=str,
+        default="indicator",
+        choices=["indicator", "returns", "rolling", "risk", "all"],
+        help="计算类型 (默认: indicator)",
+    )
+    calc_parser.add_argument(
+        "--indicator",
+        type=str,
+        help="技术指标 (逗号分隔, 仅在 type=indicator 时使用, 默认: ma,ema,macd,kdj,rsi,boll)",
+    )
     calc_parser.add_argument("--data", type=str, required=True, help="输入CSV文件")
     calc_parser.add_argument("--result", type=str, help="输出目录")
+    calc_parser.add_argument(
+        "--window",
+        type=int,
+        default=20,
+        help="滚动窗口大小 (仅在 type=rolling 时使用, 默认: 20)",
+    )
+    calc_parser.add_argument(
+        "--risk-free-rate",
+        type=float,
+        default=0.0,
+        help="无风险利率年化 (仅在 type=risk 或 type=all 时使用, 默认: 0.0)",
+    )
 
+    # news command
     news_parser = subparsers.add_parser("news", help="获取新闻数据")
     news_parser.add_argument(
         "--provider",
@@ -570,6 +131,7 @@ def main() -> int:
         help="关键词过滤 (空格分隔，如: 银行 钢铁)",
     )
 
+    # cd command
     cd_parser = subparsers.add_parser("cd", help="获取公司数据 (市值、PE等)")
     cd_parser.add_argument(
         "--symbols",
@@ -589,16 +151,87 @@ def main() -> int:
 
     args = parser.parse_args()
 
+    # Import and dispatch to command handlers
     if args.command == "pd":
-        return _cmd_data(args)
+        from .commands.data import cmd_data
+        return cmd_data(args)
     elif args.command == "backtest":
-        return _cmd_backtest(args)
+        from pathlib import Path
+        import pandas as pd
+        from .backtest_cmd import run_backtest
+
+        data_file = Path(args.data)
+        if not data_file.exists():
+            print(f"Error: Data file not found: {data_file}", file=sys.stderr)
+            return 1
+
+        try:
+            df = pd.read_csv(data_file)
+            required_cols = {"symbol", "date", "open", "close", "high", "low", "volume"}
+            if not required_cols.issubset(set(df.columns)):
+                print(f"Error: CSV must contain columns: {required_cols}", file=sys.stderr)
+                return 1
+            symbols = df["symbol"].unique().tolist()
+            start_date = df["date"].min()
+            end_date = df["date"].max()
+        except Exception as e:
+            print(f"Error reading data file: {e}", file=sys.stderr)
+            return 1
+
+        try:
+            from fine.strategies import get_strategy
+            strategy = get_strategy(args.strategy)
+        except Exception as e:
+            print(f"Error loading strategy: {e}")
+            return 1
+
+        strategy_name = getattr(strategy, "name", "strategy")
+
+        config = {
+            "cash": args.cash if args.cash is not None else getattr(strategy, "cash", 1000000),
+            "data_file": str(data_file),
+            "symbols": symbols,
+            "strategy": args.strategy,
+            "strategy_name": strategy_name,
+            "period": args.period or getattr(strategy, "period", "1d"),
+            "start_date": start_date,
+            "end_date": end_date,
+            "fee_rate": {
+                "commission_rate": (
+                    args.commission
+                    if args.commission is not None
+                    else getattr(strategy, "commission_rate", 0.0003)
+                ),
+                "min_commission": (
+                    args.min_commission
+                    if args.min_commission is not None
+                    else getattr(strategy, "min_commission", 5.0)
+                ),
+                "stamp_duty": (
+                    args.stamp_duty
+                    if args.stamp_duty is not None
+                    else getattr(strategy, "stamp_duty", 0.001)
+                ),
+                "transfer_fee": (
+                    args.transfer_fee
+                    if args.transfer_fee is not None
+                    else getattr(strategy, "transfer_fee", 0.00002)
+                ),
+            },
+            "result": args.result,
+            "lang": args.lang,
+        }
+
+        return run_backtest(config)
     elif args.command == "calculate":
-        return _cmd_calculate(args)
+        from .commands.calculate import cmd_calculate
+        return cmd_calculate(args)
     elif args.command == "news":
-        return _cmd_news(args)
+        from .commands.news import cmd_news
+        return cmd_news(args)
     elif args.command == "cd":
-        return _cmd_cd(args)
+        from .commands.cd import cmd_cd
+        return cmd_cd(args)
     else:
         parser.print_help()
         return 1

@@ -1,3 +1,3 @@
 """Fine - Python Market Data and Trading Backtesting Library"""
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"

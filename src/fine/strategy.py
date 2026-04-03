@@ -1389,8 +1389,8 @@ class CrossCondition(Condition):
 
     def evaluate(self, data: Dict[str, Any]) -> bool:
         indicators = data.get("indicators", {})
-        ma_short = indicators.get("MA")
-        ma_long = indicators.get("MA")
+        ma_short = indicators.get(f"MA{self.short_ma}")
+        ma_long = indicators.get(f"MA{self.long_ma}")
 
         if ma_short is None or ma_long is None or len(ma_short) < 2 or len(ma_long) < 2:
             return False

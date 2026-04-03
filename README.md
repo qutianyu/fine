@@ -63,15 +63,63 @@ fine cd --symbols sh600519 --provider tushare --api-key YOUR_TOKEN
 fine cd --symbols sh600519 --result /tmp
 ```
 
-### 4. calculate - 计算技术指标
+### 4. calculate - 计算技术指标/收益率/风险指标
 
 ```bash
-# 计算技术指标
-fine calculate --indicator rsi,macd --data /tmp/data.csv
+# 计算技术指标 (默认: ma,ema,macd,kdj,rsi,boll)
+fine calculate --type indicator --data /tmp/data.csv --result /tmp
 
-# 输出到指定目录
-fine calculate --indicator rsi,macd,ma --data /tmp/data.csv --result /tmp
+# 计算指定技术指标
+fine calculate --type indicator --indicator rsi,macd --data /tmp/data.csv --result /tmp
+
+# 计算收益率 (日收益率、累计收益率)
+fine calculate --type returns --data /tmp/data.csv --result /tmp
+
+# 计算滚动统计 (滚动均值、标准差、最大值、最小值)
+fine calculate --type rolling --window 20 --data /tmp/data.csv --result /tmp
+
+# 计算风险指标 (年化波动率、最大回撤、夏普比率)
+fine calculate --type risk --risk-free-rate 0.03 --data /tmp/data.csv --result /tmp
+
+# 计算全部指标
+fine calculate --type all --data /tmp/data.csv --result /tmp
 ```
+
+#### 技术指标参数说明
+
+| 指标 | 参数 | 默认值 | 说明 |
+|------|------|--------|------|
+| **MA** | period | 20 | 简单移动平均线 |
+| **EMA** | period | 12 | 指数移动平均线 |
+| **BBI** | periods | [3,6,12,24] | 多空指标，4个周期 |
+| **MACD** | fast, slow, signal | 12, 26, 9 | DIF、DEA、MACD柱 |
+| **KDJ** | n, m1, m2 | 9, 3, 3 | K、D、J值和超买超卖信号 |
+| **RSI** | period | 14 | 相对强弱指标 (0-100) |
+| **StochRSI** | period, k_period, d_period | 14, 3, 3 | 随机RSI |
+| **BOLL** | period, std_dev | 20, 2.0 | 布林带 (upper, middle, lower) |
+| **ATR** | period | 14 | 平均真实波幅 |
+| **KC** | period, std_dev | 20, 2.0 | 肯特纳通道 |
+| **SAR** | - | - | 抛物线转向指标 |
+| **OBV** | - | - | 能量潮指标 |
+| **VWAP** | - | - | 成交量加权平均价 |
+| **MFI** | period | 14 | 资金流量指标 |
+| **CMF** | period | 20 | 蔡金资金流量 |
+| **VR** | - | - | 成交量变异率 |
+| **WR** | period | 14 | 威廉指标 |
+| **WAD** | - | - | 威廉离散指标 |
+| **Donchian** | period | 20 | 唐奇安通道 |
+
+#### 输出文件说明
+
+计算结果保存为 CSV 文件，文件名格式：`{股票代码}_{开始日期}-{结束日期}_{类型}.csv`
+
+| 类型 | 输出列 |
+|------|--------|
+| indicator | ma, ema, macd, signal, k, d, j, rsi, boll (upper/middle/lower) 等 |
+| returns | daily_return (日收益率 %), cum_return (累计收益率 %) |
+| rolling | rolling_mean_{n}, rolling_std_{n}, rolling_max_{n}, rolling_min_{n} |
+| risk | annual_volatility (年化波动率 %), max_drawdown (最大回撤 %), sharpe_ratio (夏普比率) |
+| all | 上述所有列的合并 |
 
 ### 5. news - 获取新闻数据
 

@@ -428,11 +428,14 @@ class Data:
 
         return float(self._df["low"].tail(periods).min())
 
-    def getConsecutiveUpDays(self) -> int:
-        """获取连续上涨天数
+    def _get_consecutive_days(self, direction: str = "up") -> int:
+        """获取连续上涨/下跌天数（内部方法）
+
+        Args:
+            direction: "up" 上涨 | "down" 下跌
 
         Returns:
-            int: 连续上涨天数
+            int: 连续天数
         """
         if self._df is None or len(self._df) < 2:
             return 0
@@ -444,12 +447,24 @@ class Data:
         count = 0
 
         for i in range(len(closes) - 1, 0, -1):
-            if closes[i] > closes[i - 1]:
+            if direction == "up":
+                check = closes[i] > closes[i - 1]
+            else:
+                check = closes[i] < closes[i - 1]
+            if check:
                 count += 1
             else:
                 break
 
         return count
+
+    def getConsecutiveUpDays(self) -> int:
+        """获取连续上涨天数
+
+        Returns:
+            int: 连续上涨天数
+        """
+        return self._get_consecutive_days("up")
 
     def getConsecutiveDownDays(self) -> int:
         """获取连续下跌天数
@@ -457,22 +472,7 @@ class Data:
         Returns:
             int: 连续下跌天数
         """
-        if self._df is None or len(self._df) < 2:
-            return 0
-
-        if "close" not in self._df.columns:
-            return 0
-
-        closes = self._df["close"].values
-        count = 0
-
-        for i in range(len(closes) - 1, 0, -1):
-            if closes[i] < closes[i - 1]:
-                count += 1
-            else:
-                break
-
-        return count
+        return self._get_consecutive_days("down")
 
     def getMA(self, periods: int = 5) -> float:
         """获取移动平均价

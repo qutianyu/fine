@@ -77,33 +77,28 @@ class TestCLICommands:
         from fine import cli
 
         assert hasattr(cli, "main")
-        assert hasattr(cli, "_cmd_data")
-        assert hasattr(cli, "_cmd_news")
-        assert hasattr(cli, "_cmd_cd")
-        assert hasattr(cli, "_cmd_backtest")
-        assert hasattr(cli, "_cmd_calculate")
 
     def test_cmd_data_function_exists(self):
-        from fine.cli import _cmd_data
+        from fine.cli.commands.data import cmd_data
 
-        assert callable(_cmd_data)
+        assert callable(cmd_data)
 
     def test_cmd_news_function_exists(self):
-        from fine.cli import _cmd_news
+        from fine.cli.commands.news import cmd_news
 
-        assert callable(_cmd_news)
+        assert callable(cmd_news)
 
     def test_cmd_cd_function_exists(self):
-        from fine.cli import _cmd_cd
+        from fine.cli.commands.cd import cmd_cd
 
-        assert callable(_cmd_cd)
+        assert callable(cmd_cd)
 
     def test_cmd_backtest_function_exists(self):
-        from fine.cli import _cmd_backtest
+        from fine.cli.commands import run_backtest
 
-        assert callable(_cmd_backtest)
+        assert callable(run_backtest)
 
     def test_cmd_calculate_function_exists(self):
-        from fine.cli import _cmd_calculate
+        from fine.cli.commands.calculate import cmd_calculate
 
-        assert callable(_cmd_calculate)
+        assert callable(cmd_calculate)
