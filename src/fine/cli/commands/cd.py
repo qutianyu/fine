@@ -14,7 +14,7 @@ def cmd_cd(args) -> int:
     from fine.providers import MarketData
 
     symbols = args.symbols.replace(",", " ").split()
-    provider_name = args.provider or "akshare"
+    provider_name = args.provider or "baostock"
     api_key = args.api_key
     result_dir = Path(os.path.expanduser(args.result)) if args.result else Path(".")
 

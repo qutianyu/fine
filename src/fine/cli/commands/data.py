@@ -23,7 +23,7 @@ def cmd_data(args) -> int:
     start_date = args.start_time
     end_date = args.end_time
     period = args.period or "1d"
-    provider_name = args.provider or "akshare"
+    provider_name = args.provider or "baostock"
     api_key = args.api_key
     result_dir = Path(os.path.expanduser(args.result)) if args.result else Path(".")
 

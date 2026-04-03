@@ -16,8 +16,6 @@ Usage:
 import os
 from typing import Dict, List, Optional, Union
 
-import tushare as ts
-
 from .base import DataProvider, KLine, MinuteData, Quote, StockInfo
 from .utils import safe_float as _safe_float
 from .utils import safe_int as _safe_int
@@ -52,6 +50,8 @@ class TushareProvider(DataProvider):
 
     def _get_pro(self):
         if self._pro is None:
+            import tushare as ts
+
             if not self._token:
                 raise ValueError(
                     "Tushare API token not provided. "

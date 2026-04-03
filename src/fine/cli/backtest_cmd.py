@@ -230,7 +230,7 @@ def run_backtest(config: Dict[str, Any]) -> Any:
     配置格式:
     {
         "data_file": "/path/to/data.csv",  # 可选，从文件加载数据
-        "provider": "akshare",              # 可选，数据提供商
+        "provider": "baostock",              # 可选，数据提供商
         "symbols": ["sh600519", "sh000001"],
         "strategy": "macd",
         "cash": 1000000,
@@ -253,7 +253,7 @@ def run_backtest(config: Dict[str, Any]) -> Any:
         df = pd.read_csv(data_file)
         market_data = FileMarketData(df)
     else:
-        provider_name = config.get("provider", "akshare")
+        provider_name = config.get("provider", "baostock")
         provider = create_provider(provider_name)
         market_data = MarketData(provider=provider_name)
 
